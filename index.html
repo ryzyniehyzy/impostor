@@ -1,0 +1,2178 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMPOSTOR — Gra Wieloosobowa Online</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Tone.js do subtelnych efektów dźwiękowych -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <!-- Google Fonts: Inter & Space Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Space Grotesk', 'sans-serif'],
+                    },
+                    colors: {
+                        crimson: {
+                            950: '#100204',
+                            900: '#1c0508',
+                            850: '#27070c',
+                            800: '#360a11',
+                            700: '#540f19',
+                            600: '#881322',
+                            500: '#dc2626',
+                            400: '#ef4444',
+                            300: '#ff3b5c',
+                            200: '#fda4af',
+                            100: '#ffe4e6',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Głębokie, klimatyczne tło w odcieniach czerwieni */
+        body {
+            background-color: #100204;
+            background-image: 
+                radial-gradient(circle at 15% 15%, rgba(185, 28, 28, 0.22) 0%, transparent 45%),
+                radial-gradient(circle at 85% 80%, rgba(153, 27, 27, 0.25) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(69, 10, 15, 0.4) 0%, #100204 100%);
+            background-attachment: fixed;
+            color: #fff1f2;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        /* Subtelna siatka w tle */
+        .bg-grid-red {
+            background-size: 36px 36px;
+            background-image: 
+                linear-gradient(to right, rgba(239, 68, 68, 0.06) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(239, 68, 68, 0.06) 1px, transparent 1px);
+        }
+
+        /* Karty w stylu dark ruby glassmorphism */
+        .crimson-card {
+            background: linear-gradient(145deg, rgba(44, 9, 15, 0.92), rgba(26, 5, 9, 0.95));
+            border: 1px solid rgba(239, 68, 68, 0.28);
+            box-shadow: 0 12px 40px -10px rgba(0, 0, 0, 0.75), 0 0 24px -6px rgba(220, 38, 38, 0.18);
+            backdrop-filter: blur(12px);
+        }
+
+        /* Neonowe przyciski */
+        .btn-crimson {
+            background: linear-gradient(135deg, #dc2626 0%, #991b1b 100%);
+            border: 1px solid rgba(255, 90, 110, 0.45);
+            box-shadow: 0 6px 20px -4px rgba(220, 38, 38, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-crimson:hover:not(:disabled) {
+            background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%);
+            box-shadow: 0 8px 26px -2px rgba(239, 68, 68, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+            transform: translateY(-1px);
+        }
+        .btn-crimson:active:not(:disabled) {
+            transform: translateY(1px) scale(0.98);
+        }
+        .btn-crimson:disabled {
+            opacity: 0.45;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        .btn-outline-crimson {
+            background: rgba(69, 10, 15, 0.55);
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            color: #fecdd3;
+            transition: all 0.2s ease;
+        }
+        .btn-outline-crimson:hover:not(:disabled) {
+            background: rgba(127, 29, 29, 0.6);
+            border-color: #ff3b5c;
+            color: #ffffff;
+            box-shadow: 0 0 16px rgba(239, 68, 68, 0.35);
+        }
+
+        /* Pulsująca poświata dla aktywnego gracza / Impostora */
+        @keyframes redPulse {
+            0%, 100% { box-shadow: 0 0 14px rgba(239, 68, 68, 0.4), inset 0 0 12px rgba(239, 68, 68, 0.15); border-color: rgba(255, 59, 92, 0.8); }
+            50% { box-shadow: 0 0 28px rgba(255, 42, 75, 0.8), inset 0 0 20px rgba(239, 68, 68, 0.3); border-color: rgba(255, 110, 130, 1); }
+        }
+        .pulse-red {
+            animation: redPulse 2s infinite ease-in-out;
+        }
+
+        @keyframes fadeInSlide {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in {
+            animation: fadeInSlide 0.35s ease-out forwards;
+        }
+
+        /* Ukrywanie tajnej karty na życzenie (ochrona przed podglądaniem) */
+        .blur-secret {
+            filter: blur(14px);
+            user-select: none;
+        }
+
+        /* Czerwony scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #180407;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #7f1d1d;
+            border-radius: 999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #dc2626;
+        }
+    </style>
+</head>
+<body class="bg-grid-red font-sans antialiased selection:bg-red-600 selection:text-white flex flex-col min-h-screen">
+
+    <!-- ========================================== -->
+    <!-- GÓRNY PASEK NAWIGACJI (HEADER)             -->
+    <!-- ========================================== -->
+    <header class="w-full border-b border-red-900/60 bg-[#140306]/85 backdrop-blur-md sticky top-0 z-30">
+        <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+            <!-- Logo -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-red-500 to-red-900 flex items-center justify-center shadow-lg shadow-red-600/30 border border-red-400/40">
+                    <!-- Ikona maski/oka Impostora SVG -->
+                    <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                </div>
+                <div>
+                    <h1 class="font-display font-extrabold text-xl tracking-wider text-white leading-none">
+                        IMPOS<span class="text-red-500">TOR</span>
+                    </h1>
+                    <p class="text-[11px] text-red-300/75 tracking-widest uppercase font-medium">Gra Online</p>
+                </div>
+            </div>
+
+            <!-- Prawa strona nagłówka: Kod pokoju (gdy w pokoju), Dźwięk, Zasady, Wyjście -->
+            <div class="flex items-center gap-2">
+                <div id="header-room-badge" class="hidden items-center gap-2 bg-red-950/80 border border-red-700/50 rounded-xl px-3 py-1.5">
+                    <span class="text-xs text-red-300/80 hidden sm:inline">Pokój:</span>
+                    <span id="header-room-code" class="font-display font-bold text-sm text-red-100 tracking-widest">-----</span>
+                    <button id="btn-copy-header" title="Kopiuj kod pokoju" class="text-red-400 hover:text-white transition p-0.5">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                </div>
+
+                <button id="btn-sound-toggle" title="Włącz/Wyłącz dźwięki" class="btn-outline-crimson p-2 rounded-xl" aria-label="Dźwięk">
+                    <svg id="icon-sound-on" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                    </svg>
+                    <svg id="icon-sound-off" class="w-5 h-5 hidden text-red-400/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2" />
+                    </svg>
+                </button>
+
+                <button id="btn-rules" class="btn-outline-crimson px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center gap-1.5">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>Zasady</span>
+                </button>
+
+                <button id="btn-leave-room" class="hidden btn-outline-crimson px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-red-300 hover:bg-red-900/70">
+                    Wyjdź
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- ========================================== -->
+    <!-- GŁÓWNA ZAWARTOŚĆ APLIKACJI                 -->
+    <!-- ========================================== -->
+    <main class="flex-1 w-full max-w-5xl mx-auto px-4 py-6 sm:py-8 flex flex-col justify-center">
+
+        <!-- EKRAN ŁADOWANIA / POŁĄCZENIA -->
+        <section id="view-loading" class="flex flex-col items-center justify-center py-20 text-center animate-fade-in">
+            <div class="w-14 h-14 rounded-full border-4 border-red-950 border-t-red-500 animate-spin mb-4 shadow-lg shadow-red-600/30"></div>
+            <p class="text-red-200 font-medium text-lg">Łączenie z serwerem gry...</p>
+            <p class="text-red-400/70 text-sm mt-1">Inicjalizacja sesji wieloosobowej</p>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 0: EKRAN STARTOWY (TWORZENIE / DOŁĄCZ)-->
+        <!-- ========================================== -->
+        <section id="view-home" class="hidden max-w-lg mx-auto w-full animate-fade-in">
+            <div class="text-center mb-8">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-red-950/90 border border-red-600/40 text-red-300 text-xs font-semibold uppercase tracking-widest mb-4">
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                    Tryb Online w Czasie Rzeczywistym
+                </div>
+                <h2 class="font-display text-4xl sm:text-5xl font-extrabold text-white tracking-tight mb-3">
+                    Kto jest <span class="text-transparent bg-clip-text bg-gradient-to-r from-red-400 via-red-500 to-rose-600">IMPOSTOREM?</span>
+                </h2>
+                <p class="text-red-200/80 text-sm sm:text-base max-w-md mx-auto">
+                    Wszyscy znają tajne hasło — oprócz jednej osoby, która ma tylko podpowiedź. Piszcie skojarzenia, zdemaskujcie oszusta i uważajcie na jego ostateczny strzał!
+                </p>
+            </div>
+
+            <div class="crimson-card rounded-3xl p-6 sm:p-8 space-y-6">
+                <!-- Pole nicku -->
+                <div>
+                    <label for="input-nickname" class="block text-xs font-bold uppercase tracking-wider text-red-300 mb-2">
+                        Twój Nick
+                    </label>
+                    <input 
+                        type="text" 
+                        id="input-nickname" 
+                        maxlength="18" 
+                        placeholder="np. CzerwonyLis"
+                        autocomplete="off"
+                        class="w-full px-4 py-3.5 rounded-2xl bg-[#160306] border border-red-800/70 text-white placeholder-red-400/40 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition font-medium"
+                    />
+                </div>
+
+                <!-- Tworzenie pokoju -->
+                <button id="btn-create-room" class="w-full btn-crimson py-4 px-6 rounded-2xl font-display font-bold text-lg text-white flex items-center justify-center gap-2.5">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Stwórz Nowy Pokój
+                </button>
+
+                <!-- Separator -->
+                <div class="relative flex items-center py-1">
+                    <div class="flex-grow border-t border-red-900/70"></div>
+                    <span class="flex-shrink mx-4 text-xs font-bold uppercase tracking-widest text-red-400/70">lub dołącz kodem</span>
+                    <div class="flex-grow border-t border-red-900/70"></div>
+                </div>
+
+                <!-- Dołączanie do pokoju -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <input 
+                        type="text" 
+                        id="input-room-code" 
+                        maxlength="6" 
+                        placeholder="KOD POKOJU"
+                        autocomplete="off"
+                        class="flex-1 px-4 py-3.5 rounded-2xl bg-[#160306] border border-red-800/70 text-white placeholder-red-400/40 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition font-display font-bold tracking-widest uppercase text-center sm:text-left"
+                    />
+                    <button id="btn-join-room" class="btn-outline-crimson px-6 py-3.5 rounded-2xl font-display font-bold text-base whitespace-nowrap">
+                        Dołącz do Gry
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 1: LOBBY POKOJU                      -->
+        <!-- ========================================== -->
+        <section id="view-lobby" class="hidden space-y-6 animate-fade-in">
+            <!-- Górny baner z kodem pokoju -->
+            <div class="crimson-card rounded-3xl p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div class="text-center md:text-left">
+                    <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-1">Kod zaproszenia do pokoju</p>
+                    <div class="flex items-center justify-center md:justify-start gap-3">
+                        <span id="lobby-room-code" class="font-display text-4xl sm:text-5xl font-extrabold tracking-[0.2em] text-white">-----</span>
+                        <button id="btn-copy-lobby" class="btn-outline-crimson p-3 rounded-2xl" title="Skopiuj kod">
+                            <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                            </svg>
+                        </button>
+                    </div>
+                    <p class="text-xs text-red-300/70 mt-2">Wyślij ten kod znajomym, aby mogli dołączyć ze swoich komputerów lub telefonów.</p>
+                </div>
+
+                <!-- Ustawienia gry (widoczne dla wszystkich, edytowalne przez Hosta) -->
+                <div class="w-full md:w-auto bg-[#160306]/90 border border-red-900/70 rounded-2xl p-4 min-w-[240px]">
+                    <label for="select-rounds" class="block text-xs font-bold uppercase tracking-wider text-red-300 mb-2">
+                        Tryb / Liczba rund
+                    </label>
+                    <select id="select-rounds" class="w-full px-3.5 py-2.5 rounded-xl bg-[#27070c] border border-red-700/60 text-white text-sm font-semibold focus:outline-none focus:border-red-500">
+                        <option value="3">3 Rundy (Szybka gra)</option>
+                        <option value="5" selected>5 Rund (Klasyczna)</option>
+                        <option value="7">7 Rund (Długa gra)</option>
+                        <option value="0">Tryb ciągły (bez limitu)</option>
+                    </select>
+                    <p id="lobby-host-note" class="text-[11px] text-red-400/80 mt-2">Tylko Gospodarz może zmieniać ustawienia i rozpocząć grę.</p>
+                </div>
+            </div>
+
+            <!-- Lista graczy i przycisk startu -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Gracze w pokoju -->
+                <div class="lg:col-span-2 crimson-card rounded-3xl p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="font-display text-xl font-bold text-white flex items-center gap-2">
+                            <span>Gracze w pokoju</span>
+                            <span id="lobby-player-count" class="px-2.5 py-0.5 rounded-full bg-red-600/30 border border-red-500/50 text-red-200 text-sm">0</span>
+                        </h3>
+                        <span class="text-xs text-red-300/70">Min. 3 graczy do startu</span>
+                    </div>
+
+                    <div id="lobby-players-list" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <!-- Renderowane dynamicznie -->
+                    </div>
+                </div>
+
+                <!-- Panel startowy -->
+                <div class="crimson-card rounded-3xl p-6 flex flex-col justify-between gap-5">
+                    <div>
+                        <h3 class="font-display text-lg font-bold text-white mb-2">Gotowi do gry?</h3>
+                        <p class="text-sm text-red-200/80 leading-relaxed">
+                            Po rozpoczęciu każdy gracz otrzyma swoją sekretną rolę. Zwykli gracze poznają hasło, a jeden wylosowany <strong class="text-red-400">Impostor</strong> otrzyma jedynie podpowiedź.
+                        </p>
+                    </div>
+
+                    <!-- Ostrzeżenie gdy mniej niż 3 graczy -->
+                    <div id="lobby-min-warning" class="hidden p-3.5 rounded-2xl bg-red-950/90 border border-red-500/60 text-red-200 text-xs font-medium flex items-start gap-2.5">
+                        <svg class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        <span>Potrzeba minimum <strong>3 graczy</strong>, aby rozpocząć rozgrywkę. Zaproś jeszcze <span id="lobby-needed-count">2</span> os.</span>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button id="btn-start-game" class="hidden w-full btn-crimson py-4 px-5 rounded-2xl font-display font-bold text-lg text-white">
+                            Rozpocznij Grę
+                        </button>
+                        <div id="lobby-waiting-host" class="hidden text-center py-3.5 px-4 rounded-2xl bg-[#180407] border border-red-900/60 text-red-300 text-sm font-medium">
+                            Oczekiwanie na uruchomienie gry przez Gospodarza...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 2: FAZA 1 - PRZYDZIELENIE RÓL        -->
+        <!-- ========================================== -->
+        <section id="view-role" class="hidden max-w-xl mx-auto w-full space-y-6 animate-fade-in">
+            <div class="text-center">
+                <span id="role-round-badge" class="inline-block px-3.5 py-1 rounded-full bg-red-950 border border-red-600/50 text-red-300 text-xs font-bold uppercase tracking-widest mb-2">
+                    Runda 1
+                </span>
+                <h2 class="font-display text-3xl font-extrabold text-white">Twoja Sekretna Karta</h2>
+                <p class="text-sm text-red-200/75 mt-1">Nikomu nie pokazuj swojego ekranu!</p>
+            </div>
+
+            <!-- Karta roli -->
+            <div id="role-card-container" class="crimson-card rounded-3xl p-7 sm:p-9 text-center relative overflow-hidden">
+                <!-- Przycisk ukrywania/pokazywania na wypadek podglądania -->
+                <div class="flex justify-end mb-2">
+                    <button id="btn-toggle-blur" class="text-xs font-semibold text-red-300 hover:text-white flex items-center gap-1.5 bg-red-950/70 px-3 py-1.5 rounded-xl border border-red-800/60">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                        <span id="blur-btn-text">Ukryj kartę</span>
+                    </button>
+                </div>
+
+                <div id="role-secret-content" class="transition-all duration-300 py-4">
+                    <!-- Wypełniane dynamicznie: Zwykły gracz vs Impostor -->
+                </div>
+            </div>
+
+            <!-- Gotowość graczy -->
+            <div class="crimson-card rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <p class="text-sm font-semibold text-white">
+                        Gotowi gracze: <span id="role-ready-count" class="text-red-400 font-bold">0 / 0</span>
+                    </p>
+                    <p class="text-xs text-red-300/70">Gdy wszyscy potwierdzą, przejdziemy do pisania skojarzeń.</p>
+                </div>
+                <button id="btn-role-ready" class="w-full sm:w-auto btn-crimson px-7 py-3.5 rounded-2xl font-display font-bold text-base text-white">
+                    Zapamiętałem, gotowy!
+                </button>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 3: FAZA 2 - PISANIE SKOJARZEŃ TUROWO -->
+        <!-- ========================================== -->
+        <section id="view-clues" class="hidden space-y-6 animate-fade-in">
+            <!-- Górny pasek z przypomnieniem roli i info o turze -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <!-- Pasek tury -->
+                <div class="md:col-span-2 crimson-card rounded-3xl p-5 flex items-center justify-between gap-4">
+                    <div>
+                        <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-1">Faza 2 • Skojarzenia</p>
+                        <h2 id="clues-turn-banner" class="font-display text-xl sm:text-2xl font-extrabold text-white">
+                            Teraz pisze: ...
+                        </h2>
+                    </div>
+                    <div id="clues-progress-pill" class="px-3.5 py-1.5 rounded-xl bg-red-950 border border-red-700/60 text-red-200 font-display font-bold text-sm whitespace-nowrap">
+                        1 / 4
+                    </div>
+                </div>
+
+                <!-- Mini przypomnienie hasła/podpowiedzi -->
+                <div class="crimson-card rounded-3xl p-4 flex items-center justify-between gap-3">
+                    <div class="min-w-0">
+                        <p id="clues-reminder-label" class="text-[11px] font-bold uppercase tracking-wider text-red-400">Twoje hasło</p>
+                        <p id="clues-reminder-value" class="font-display font-bold text-lg text-white truncate blur-secret transition-all">---</p>
+                    </div>
+                    <button id="btn-peek-clue" class="btn-outline-crimson px-3 py-2 rounded-xl text-xs font-semibold flex-shrink-0">
+                        Podejrzyj
+                    </button>
+                </div>
+            </div>
+
+            <!-- Główny obszar: Kolejka + Tablica skojarzeń + Input -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Lista skojarzeń na żywo -->
+                <div class="lg:col-span-2 crimson-card rounded-3xl p-6 flex flex-col">
+                    <h3 class="font-display text-lg font-bold text-white mb-4 flex items-center gap-2">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse"></span>
+                        Podane skojarzenia
+                    </h3>
+                    <div id="clues-list" class="space-y-3 flex-1 min-h-[200px]">
+                        <!-- Skojarzenia renderowane tutaj -->
+                    </div>
+                </div>
+
+                <!-- Panel wpisywania skojarzenia -->
+                <div class="crimson-card rounded-3xl p-6 flex flex-col justify-between gap-5">
+                    <div>
+                        <h3 class="font-display text-lg font-bold text-white mb-2">Twoje skojarzenie</h3>
+                        <p class="text-xs text-red-200/75 leading-relaxed">
+                            Wpisz jedno słowo lub krótkie hasło powiązane z sekretnym słowem. Nie bądź zbyt oczywisty, by Impostor nie odgadł hasła — ani zbyt ogólny, by nie wzbudzić podejrzeń!
+                        </p>
+                    </div>
+
+                    <form id="form-clue" class="space-y-3">
+                        <input 
+                            type="text" 
+                            id="input-clue" 
+                            maxlength="35"
+                            autocomplete="off"
+                            placeholder="Wpisz skojarzenie..."
+                            class="w-full px-4 py-3.5 rounded-2xl bg-[#160306] border border-red-800/70 text-white placeholder-red-400/40 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition font-medium disabled:opacity-40"
+                        />
+                        <button type="submit" id="btn-submit-clue" class="w-full btn-crimson py-3.5 px-5 rounded-2xl font-display font-bold text-base text-white">
+                            Wyślij skojarzenie
+                        </button>
+                    </form>
+
+                    <!-- Kolejność graczy -->
+                    <div class="pt-3 border-t border-red-900/60">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-400 mb-2">Kolejność pisania</p>
+                        <div id="clues-order-list" class="flex flex-wrap gap-1.5">
+                            <!-- Tagi graczy -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 4: FAZA 3 - GŁOSOWANIE               -->
+        <!-- ========================================== -->
+        <section id="view-voting" class="hidden space-y-6 animate-fade-in">
+            <div class="crimson-card rounded-3xl p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-1">Faza 3 • Głosowanie</p>
+                    <h2 class="font-display text-2xl sm:text-3xl font-extrabold text-white">Wskaż Impostora!</h2>
+                    <p class="text-sm text-red-200/80 mt-1">Przeanalizuj podane skojarzenia i zagłosuj na osobę, która Twoim zdaniem nie znała hasła.</p>
+                </div>
+                <div class="bg-[#160306] border border-red-700/60 rounded-2xl px-5 py-3 text-center flex-shrink-0">
+                    <p class="text-[11px] font-bold uppercase tracking-wider text-red-400">Oddane głosy</p>
+                    <p id="voting-progress-text" class="font-display text-2xl font-extrabold text-white">0 / 0</p>
+                </div>
+            </div>
+
+            <!-- Karty graczy z ich skojarzeniami do głosowania -->
+            <div id="voting-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- Renderowane dynamicznie -->
+            </div>
+
+            <div id="voting-status-banner" class="hidden text-center p-4 rounded-2xl bg-red-950/80 border border-red-600/50 text-red-200 font-medium text-sm">
+                Twój głos został zapisany. Oczekiwanie na pozostałych graczy...
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 5: FAZA 4 - OSTATECZNA SZANSA        -->
+        <!-- ========================================== -->
+        <section id="view-impostor-guess" class="hidden max-w-xl mx-auto w-full space-y-6 animate-fade-in">
+            <div class="crimson-card rounded-3xl p-7 sm:p-9 text-center pulse-red">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-2xl bg-red-600/25 border border-red-500 flex items-center justify-center">
+                    <svg class="w-9 h-9 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-1">Impostor Zdemaskowany!</p>
+                <h2 class="font-display text-3xl font-extrabold text-white mb-2">Ostateczna Szansa</h2>
+                <p id="guess-impostor-announce" class="text-red-200 text-base mb-6">
+                    Gracze wygłosowali <strong class="text-white">...</strong> jako Impostora!
+                </p>
+
+                <!-- Widok DLA IMPOSTORA -->
+                <div id="guess-impostor-panel" class="hidden space-y-4 text-left bg-[#160306]/90 p-5 rounded-2xl border border-red-700/60">
+                    <div class="flex items-center justify-between text-xs text-red-300">
+                        <span>Twoja podpowiedź: <strong id="guess-hint-reminder" class="text-white">---</strong></span>
+                    </div>
+                    <p class="text-sm text-red-200/90">
+                        To Twoja ostatnia szansa! Jeśli odgadniesz dokładne hasło, <strong>zdobędziesz +3 pkt</strong> i wygrasz rundę. Jeśli chybisz — pozostali gracze dostaną po +2 pkt.
+                    </p>
+                    <form id="form-impostor-guess" class="space-y-3">
+                        <input 
+                            type="text" 
+                            id="input-impostor-guess" 
+                            maxlength="40"
+                            autocomplete="off"
+                            placeholder="Wpisz tajne hasło..."
+                            class="w-full px-4 py-3.5 rounded-2xl bg-[#24060a] border border-red-500/70 text-white placeholder-red-400/50 focus:outline-none focus:ring-2 focus:ring-red-500 font-display font-bold text-lg text-center"
+                        />
+                        <button type="submit" id="btn-submit-guess" class="w-full btn-crimson py-4 rounded-2xl font-display font-bold text-lg text-white">
+                            Strzelam hasło!
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Widok DLA POZOSTAŁYCH GRACZY -->
+                <div id="guess-waiting-panel" class="hidden p-5 rounded-2xl bg-[#160306]/90 border border-red-900/70">
+                    <div class="flex items-center justify-center gap-3 mb-2">
+                        <div class="w-5 h-5 rounded-full border-2 border-red-900 border-t-red-400 animate-spin"></div>
+                        <span class="font-display font-bold text-red-200">Oczekiwanie na strzał Impostora...</span>
+                    </div>
+                    <p class="text-xs text-red-300/75">
+                        Jeśli Impostor odgadnie hasło na podstawie Waszych skojarzeń, ukradnie zwycięstwo w tej rundzie!
+                    </p>
+                </div>
+            </div>
+
+            <!-- Przypomnienie skojarzeń z rundy (pomaga Impostorowi myśleć!) -->
+            <div class="crimson-card rounded-3xl p-5">
+                <p class="text-xs font-bold uppercase tracking-wider text-red-400 mb-3">Skojarzenia z tej rundy</p>
+                <div id="guess-clues-recap" class="flex flex-wrap gap-2">
+                    <!-- Tagi ze skojarzeniami -->
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 6: FAZA 5 - PODSUMOWANIE RUNDY       -->
+        <!-- ========================================== -->
+        <section id="view-summary" class="hidden space-y-6 animate-fade-in">
+            <!-- Baner wyniku rundy -->
+            <div id="summary-banner" class="crimson-card rounded-3xl p-6 sm:p-8 text-center relative overflow-hidden">
+                <span id="summary-round-label" class="inline-block px-3.5 py-1 rounded-full bg-red-950 border border-red-600/50 text-red-300 text-xs font-bold uppercase tracking-widest mb-3">
+                    Podsumowanie Rundy 1
+                </span>
+                <h2 id="summary-headline" class="font-display text-3xl sm:text-4xl font-extrabold text-white mb-2">
+                    Wynik rundy
+                </h2>
+                <p id="summary-subtext" class="text-red-200/90 text-sm sm:text-base max-w-xl mx-auto">
+                    ...
+                </p>
+
+                <!-- Kafelki z ujawnieniem hasła, Impostora i strzału -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-6 text-left">
+                    <div class="bg-[#160306]/90 border border-red-800/60 rounded-2xl p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-400">Impostor</p>
+                        <p id="summary-impostor-name" class="font-display text-xl font-bold text-white mt-0.5">---</p>
+                        <p class="text-xs text-red-300/75 mt-1">Podpowiedź: <span id="summary-hint" class="text-red-200 font-medium">---</span></p>
+                    </div>
+                    <div class="bg-[#160306]/90 border border-red-800/60 rounded-2xl p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-400">Tajne Hasło</p>
+                        <p id="summary-word" class="font-display text-xl font-bold text-red-400 mt-0.5">---</p>
+                        <p class="text-xs text-red-300/75 mt-1">Kategoria: <span id="summary-category" class="text-red-200 font-medium">---</span></p>
+                    </div>
+                    <div class="bg-[#160306]/90 border border-red-800/60 rounded-2xl p-4">
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-400">Głosowanie / Strzał</p>
+                        <p id="summary-voted-out" class="font-display text-base font-bold text-white mt-0.5">---</p>
+                        <p id="summary-guess-box" class="text-xs text-red-300/80 mt-1 hidden">Strzał: <span id="summary-guess-text" class="font-bold text-white"></span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabela wyników i rozkład głosów -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Tabela punktów -->
+                <div class="lg:col-span-2 crimson-card rounded-3xl p-6">
+                    <h3 class="font-display text-xl font-bold text-white mb-4">Tabela Wyników</h3>
+                    <div id="summary-leaderboard" class="space-y-2.5">
+                        <!-- Renderowane dynamicznie -->
+                    </div>
+                </div>
+
+                <!-- Rozkład głosów + akcje Hosta -->
+                <div class="crimson-card rounded-3xl p-6 flex flex-col justify-between gap-5">
+                    <div>
+                        <h3 class="font-display text-lg font-bold text-white mb-3">Kto na kogo głosował</h3>
+                        <div id="summary-votes-list" class="space-y-2 text-sm">
+                            <!-- Lista głosów -->
+                        </div>
+                    </div>
+
+                    <div class="space-y-3 pt-4 border-t border-red-900/60">
+                        <button id="btn-next-round" class="hidden w-full btn-crimson py-3.5 px-5 rounded-2xl font-display font-bold text-base text-white">
+                            Następna Runda
+                        </button>
+                        <button id="btn-end-game" class="hidden w-full btn-outline-crimson py-3 px-5 rounded-2xl font-display font-bold text-sm">
+                            Zakończ grę i pokaż Podium
+                        </button>
+                        <div id="summary-waiting-host" class="hidden text-center py-3 px-4 rounded-2xl bg-[#160306] border border-red-900/60 text-red-300 text-xs font-medium">
+                            Oczekiwanie na decyzję Gospodarza...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- WIDOK 7: KONIEC GRY - PODIUM ZWYCIĘZCÓW    -->
+        <!-- ========================================== -->
+        <section id="view-gameover" class="hidden max-w-2xl mx-auto w-full space-y-6 animate-fade-in">
+            <div class="crimson-card rounded-3xl p-7 sm:p-10 text-center pulse-red">
+                <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-2">Koniec Rozgrywki</p>
+                <h2 class="font-display text-4xl sm:text-5xl font-extrabold text-white mb-2">Podium Zwycięzców</h2>
+                <p id="gameover-winner-subtitle" class="text-red-200 text-base mb-8">Gratulacje dla najlepszego gracza!</p>
+
+                <!-- Podium Top 3 -->
+                <div id="gameover-podium" class="flex items-end justify-center gap-3 sm:gap-5 mb-8 pt-4">
+                    <!-- Renderowane dynamicznie -->
+                </div>
+
+                <!-- Pełna tabela -->
+                <div class="text-left bg-[#160306]/85 border border-red-900/70 rounded-2xl p-4 mb-6">
+                    <p class="text-xs font-bold uppercase tracking-wider text-red-400 mb-3">Końcowa klasyfikacja</p>
+                    <div id="gameover-full-list" class="space-y-2">
+                        <!-- Renderowane dynamicznie -->
+                    </div>
+                </div>
+
+                <!-- Przyciski akcji -->
+                <div class="flex flex-col sm:flex-row gap-3 justify-center">
+                    <button id="btn-play-again" class="hidden btn-crimson px-8 py-4 rounded-2xl font-display font-bold text-base text-white">
+                        Nowa Gra (Reset Punktów)
+                    </button>
+                    <div id="gameover-waiting-host" class="hidden py-3.5 px-6 rounded-2xl bg-[#160306] border border-red-900/60 text-red-300 text-sm">
+                        Czekaj aż Gospodarz rozpocznie nową grę...
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- ========================================== -->
+    <!-- STOPKA (Z PEŁNYM ID GRACZA)                -->
+    <!-- ========================================== -->
+    <footer class="w-full border-t border-red-950/80 py-3 px-4 text-center text-[11px] text-red-400/60">
+        <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <span>IMPOSTOR Online • Edycja Karmazynowa</span>
+            <span>Twoje ID sesji: <code id="footer-uid" class="text-red-300/80 select-all">łączenie...</code></span>
+        </div>
+    </footer>
+
+    <!-- ========================================== -->
+    <!-- MODAL ZASAD GRY                            -->
+    <!-- ========================================== -->
+    <div id="modal-rules" class="hidden fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="crimson-card rounded-3xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-6 sm:p-7 relative animate-fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="font-display text-2xl font-extrabold text-white">Zasady gry IMPOSTOR</h3>
+                <button id="btn-close-rules" class="text-red-300 hover:text-white p-1.5 rounded-xl bg-red-950/80 border border-red-800/60">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                </button>
+            </div>
+            <div class="space-y-4 text-sm text-red-100/90 leading-relaxed">
+                <div class="p-3.5 rounded-2xl bg-[#180407] border border-red-900/70">
+                    <h4 class="font-bold text-red-400 mb-1">1. Role i Hasło</h4>
+                    <p>W każdej rundzie losowane jest jedno tajne hasło. Wszyscy gracze poza jednym widzą hasło. Jeden gracz zostaje <strong>Impostorem</strong> — nie zna hasła, ale otrzymuje subtelną <strong>podpowiedź</strong>.</p>
+                </div>
+                <div class="p-3.5 rounded-2xl bg-[#180407] border border-red-900/70">
+                    <h4 class="font-bold text-red-400 mb-1">2. Skojarzenia po kolei</h4>
+                    <p>Gracze w wylosowanej kolejności wpisują po jednym skojarzeniu związanym z hasłem. Zwykli gracze muszą pokazać, że znają hasło, ale nie mogą go zdradzić Impostorowi!</p>
+                </div>
+                <div class="p-3.5 rounded-2xl bg-[#180407] border border-red-900/70">
+                    <h4 class="font-bold text-red-400 mb-1">3. Głosowanie</h4>
+                    <p>Po zebraniu wszystkich skojarzeń gracze głosują na osobę, którą podejrzewają o bycie Impostorem (nie można głosować na siebie).</p>
+                </div>
+                <div class="p-3.5 rounded-2xl bg-[#180407] border border-red-900/70">
+                    <h4 class="font-bold text-red-400 mb-1">4. Ostateczna Szansa i Punktacja</h4>
+                    <ul class="list-disc list-inside space-y-1 text-red-200/90">
+                        <li><strong>Wygłosowano niewinną osobę lub był remis:</strong> Impostor wygrywa rundę i dostaje <strong>+3 pkt</strong>.</li>
+                        <li><strong>Wygłosowano Impostora:</strong> Impostor dostaje <strong>ostateczną szansę</strong> na wpisanie tajnego hasła!</li>
+                        <li>Jeśli Impostor <strong>zgadnie hasło</strong> — zdobywa <strong>+3 pkt</strong> i kradnie zwycięstwo!</li>
+                        <li>Jeśli Impostor <strong>nie zgadnie</strong> — pozostali gracze zdobywają po <strong>+2 pkt</strong> każdy.</li>
+                    </ul>
+                </div>
+            </div>
+            <button id="btn-close-rules-bottom" class="mt-6 w-full btn-crimson py-3 rounded-2xl font-display font-bold text-white">
+                Rozumiem, gramy!
+            </button>
+        </div>
+    </div>
+
+    <!-- ========================================== -->
+    <!-- KONTENER POWIADOMIEŃ (TOASTS)              -->
+    <!-- ========================================== -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-[calc(100%-2.5rem)] pointer-events-none"></div>
+
+    <!-- ========================================== -->
+    <!-- LOGIKA GRY + FIREBASE (MODUŁ ES)           -->
+    <!-- ========================================== -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, 
+            onSnapshot, runTransaction, deleteField 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // =========================================================================
+        // 1. BAZA 60 POLSKICH HASEŁ Z SUBTELNYMI PODPOWIEDZIAMI DLA IMPOSTORA
+        // =========================================================================
+        const WORD_DATABASE = [
+            { word: "Wulkan", hint: "Gorąco i natura", category: "Natura" },
+            { word: "Pianino", hint: "Czarno-białe", category: "Muzyka" },
+            { word: "Kino", hint: "Ciemność i ekran", category: "Miejsca" },
+            { word: "Pizza", hint: "Trójkątne kawałki", category: "Jedzenie" },
+            { word: "Pingwin", hint: "Elegancja w zimnie", category: "Zwierzęta" },
+            { word: "Latarnia", hint: "Światło na brzegu", category: "Miejsca" },
+            { word: "Kawa", hint: "Poranna energia", category: "Jedzenie" },
+            { word: "Pustynia", hint: "Sucho i gorąco", category: "Natura" },
+            { word: "Gitara", hint: "Napięte linki", category: "Muzyka" },
+            { word: "Pociąg", hint: "Podróż po żelazie", category: "Transport" },
+            { word: "Kompas", hint: "Zawsze wskazuje kierunek", category: "Przedmioty" },
+            { word: "Kameleon", hint: "Mistrz kamuflażu", category: "Zwierzęta" },
+            { word: "Lodowisko", hint: "Śliska rozrywka", category: "Sport" },
+            { word: "Biblioteka", hint: "Cisza i półki", category: "Miejsca" },
+            { word: "Czekolada", hint: "Słodkie kostki", category: "Jedzenie" },
+            { word: "Tęcza", hint: "Po deszczu na niebie", category: "Natura" },
+            { word: "Szachy", hint: "Królewska strategia", category: "Gry" },
+            { word: "Parasol", hint: "Ochrona z góry", category: "Przedmioty" },
+            { word: "Sowa", hint: "Nocny łowca", category: "Zwierzęta" },
+            { word: "Rakieta", hint: "Start w górę", category: "Kosmos" },
+            { word: "Księżyc", hint: "Świeci nocą", category: "Kosmos" },
+            { word: "Sushi", hint: "Zwijane z Azji", category: "Jedzenie" },
+            { word: "Teatr", hint: "Kurtyna i oklaski", category: "Miejsca" },
+            { word: "Zegarek", hint: "Odmierza na ręce", category: "Przedmioty" },
+            { word: "Boks", hint: "Walka w rękawicach", category: "Sport" },
+            { word: "Delfin", hint: "Inteligentny pływak", category: "Zwierzęta" },
+            { word: "Wodospad", hint: "Huk spadającej wody", category: "Natura" },
+            { word: "Perkusja", hint: "Rytm i uderzenia", category: "Muzyka" },
+            { word: "Samolot", hint: "Skrzydła nad chmurami", category: "Transport" },
+            { word: "Lustro", hint: "Odbicie prawdy", category: "Przedmioty" },
+            { word: "Strażak", hint: "Walka z żywiołem", category: "Zawody" },
+            { word: "Kucharz", hint: "Mistrz smaku", category: "Zawody" },
+            { word: "Astronauta", hint: "Praca w nieważkości", category: "Zawody" },
+            { word: "Wampir", hint: "Boi się słońca", category: "Popkultura" },
+            { word: "Pirat", hint: "Skarb i morze", category: "Popkultura" },
+            { word: "Kaktus", hint: "Kolczasta roślina", category: "Natura" },
+            { word: "Hamak", hint: "Bujany relaks", category: "Przedmioty" },
+            { word: "Teleskop", hint: "Patrzenie w dal", category: "Nauka" },
+            { word: "Mikroskop", hint: "Powiększa niewidoczne", category: "Nauka" },
+            { word: "Lody", hint: "Zimna przyjemność", category: "Jedzenie" },
+            { word: "Popcorn", hint: "Pęka od ciepła", category: "Jedzenie" },
+            { word: "Basen", hint: "Chlor i pływanie", category: "Miejsca" },
+            { word: "Plaża", hint: "Piasek i fale", category: "Miejsca" },
+            { word: "Jaskinia", hint: "Podziemny mrok", category: "Natura" },
+            { word: "Góra", hint: "Szczyt do zdobycia", category: "Natura" },
+            { word: "Żyrafa", hint: "Bardzo wysoko nad ziemią", category: "Zwierzęta" },
+            { word: "Pająk", hint: "Tkacz pułapek", category: "Zwierzęta" },
+            { word: "Klucz", hint: "Otwiera zamknięte", category: "Przedmioty" },
+            { word: "Świeczka", hint: "Topi się od ognia", category: "Przedmioty" },
+            { word: "Rower", hint: "Dwa koła i pedały", category: "Transport" },
+            { word: "Metro", hint: "Szybko pod ziemią", category: "Transport" },
+            { word: "Tenis", hint: "Siatka i żółta piłka", category: "Sport" },
+            { word: "Narty", hint: "Zjazd po białym", category: "Sport" },
+            { word: "Skrzypce", hint: "Smyczek i drewno", category: "Muzyka" },
+            { word: "Smartfon", hint: "Świat w kieszeni", category: "Technologia" },
+            { word: "Robot", hint: "Mechaniczny pomocnik", category: "Technologia" },
+            { word: "Detektyw", hint: "Szuka poszlak", category: "Zawody" },
+            { word: "Magik", hint: "Iluzja i sztuczki", category: "Zawody" },
+            { word: "Zamek", hint: "Mury z przeszłości", category: "Miejsca" },
+            { word: "Cyrk", hint: "Namiot pełen akrobacji", category: "Miejsca" }
+        ];
+
+        // =========================================================================
+        // 2. INICJALIZACJA FIREBASE I STANU APLIKACJI
+        // =========================================================================
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'impostor-crimson-pl';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+
+        let app = null;
+        let auth = null;
+        let db = null;
+        let currentUser = null;
+        let currentRoomCode = null;
+        let currentRoomData = null;
+        let unsubscribeRoom = null;
+        let soundEnabled = true;
+        let lastPhase = null;
+        let lastTurnIndex = -1;
+
+        // =========================================================================
+        // 3. SYSTEM DŹWIĘKÓW (TONE.JS)
+        // =========================================================================
+        function playSound(type) {
+            if (!soundEnabled || typeof Tone === 'undefined') return;
+            try {
+                if (Tone.context.state !== 'running') {
+                    Tone.start().catch(() => {});
+                }
+                const synth = new Tone.Synth({
+                    oscillator: { type: 'triangle' },
+                    envelope: { attack: 0.01, decay: 0.15, sustain: 0.05, release: 0.25 }
+                }).toDestination();
+                synth.volume.value = -12;
+
+                if (type === 'click') {
+                    synth.triggerAttackRelease('C5', '32n');
+                } else if (type === 'turn') {
+                    synth.triggerAttackRelease('E5', '16n');
+                    setTimeout(() => synth.triggerAttackRelease('G5', '16n'), 100);
+                } else if (type === 'alert') {
+                    synth.triggerAttackRelease('A3', '8n');
+                    setTimeout(() => synth.triggerAttackRelease('Eb4', '8n'), 140);
+                } else if (type === 'win') {
+                    const now = Tone.now();
+                    synth.triggerAttackRelease('C5', '16n', now);
+                    synth.triggerAttackRelease('E5', '16n', now + 0.1);
+                    synth.triggerAttackRelease('G5', '8n', now + 0.2);
+                }
+            } catch (e) {
+                // Ignorujemy błędy audio w zablokowanym kontekście
+            }
+        }
+
+        // =========================================================================
+        // 4. NARZĘDZIA POMOCNICZE (TOASTY, KOPIOWANIE, NORMALIZACJA POLSKICH ZNAKÓW)
+        // =========================================================================
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            const bgClass = type === 'error' 
+                ? 'bg-red-900/95 border-red-400 text-white' 
+                : type === 'success' 
+                    ? 'bg-rose-900/95 border-rose-400 text-white'
+                    : 'bg-[#2a070d]/95 border-red-600/70 text-red-100';
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-2xl border shadow-xl text-sm font-medium flex items-center gap-2.5 animate-fade-in ${bgClass}`;
+            toast.innerHTML = `
+                <span class="w-2 h-2 rounded-full ${type === 'error' ? 'bg-red-300' : 'bg-red-400'} flex-shrink-0"></span>
+                <span>${escapeHtml(message)}</span>
+            `;
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateY(6px)';
+                toast.style.transition = 'all 0.25s ease';
+                setTimeout(() => toast.remove(), 250);
+            }, 3400);
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        // Kopiowanie tekstu z użyciem document.execCommand('copy') dla pełnej kompatybilności w iframe
+        function copyToClipboard(text) {
+            try {
+                const textarea = document.createElement('textarea');
+                textarea.value = text;
+                textarea.style.position = 'fixed';
+                textarea.style.opacity = '0';
+                document.body.appendChild(textarea);
+                textarea.focus();
+                textarea.select();
+                const ok = document.execCommand('copy');
+                document.body.removeChild(textarea);
+                if (ok) {
+                    showToast(`Skopiowano kod pokoju: ${text}`, 'success');
+                    playSound('click');
+                } else {
+                    showToast('Nie udało się skopiować kodu.', 'error');
+                }
+            } catch (e) {
+                showToast('Nie udało się skopiować kodu.', 'error');
+            }
+        }
+
+        // Normalizacja polskiego tekstu (ignoruje wielkość liter, zbędne spacje i polskie znaki diakrytyczne)
+        function normalizePolishWord(text) {
+            if (!text) return '';
+            const map = {
+                'ą': 'a', 'ć': 'c', 'ę': 'e', 'ł': 'l', 'ń': 'n',
+                'ó': 'o', 'ś': 's', 'ź': 'z', 'ż': 'z'
+            };
+            return text
+                .toLowerCase()
+                .trim()
+                .replace(/\s+/g, ' ')
+                .replace(/[ąćęłńóśźż]/g, ch => map[ch] || ch);
+        }
+
+        // Generowanie 5-znakowego kodu pokoju (bez mylących znaków typu O/0, I/1)
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 5; i++) {
+                code += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return code;
+        }
+
+        // Tasowanie tablicy (Fisher-Yates)
+        function shuffleArray(arr) {
+            const copy = [...arr];
+            for (let i = copy.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [copy[i], copy[j]] = [copy[j], copy[i]];
+            }
+            return copy;
+        }
+
+        // Pomocnik do ścieżki dokumentu pokoju (zgodnie z regułą /artifacts/{appId}/public/data/...)
+        function getRoomDocRef(roomCode) {
+            return doc(db, 'artifacts', appId, 'public', 'data', 'impostor_rooms', roomCode);
+        }
+
+        // =========================================================================
+        // 5. ZARZĄDZANIE WIDOKAMI
+        // =========================================================================
+        const VIEW_IDS = [
+            'view-loading', 'view-home', 'view-lobby', 'view-role',
+            'view-clues', 'view-voting', 'view-impostor-guess',
+            'view-summary', 'view-gameover'
+        ];
+
+        function showView(viewId) {
+            VIEW_IDS.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    if (id === viewId) el.classList.remove('hidden');
+                    else el.classList.add('hidden');
+                }
+            });
+
+            const inRoom = currentRoomCode !== null && viewId !== 'view-home' && viewId !== 'view-loading';
+            const roomBadge = document.getElementById('header-room-badge');
+            const leaveBtn = document.getElementById('btn-leave-room');
+            if (inRoom) {
+                roomBadge.classList.remove('hidden');
+                roomBadge.classList.add('flex');
+                leaveBtn.classList.remove('hidden');
+                document.getElementById('header-room-code').textContent = currentRoomCode;
+            } else {
+                roomBadge.classList.add('hidden');
+                roomBadge.classList.remove('flex');
+                leaveBtn.classList.add('hidden');
+            }
+        }
+
+        // =========================================================================
+        // 6. AKCJE POKOJU I PRZEPŁYW GRY (FIRESTORE)
+        // =========================================================================
+
+        // Tworzenie nowego pokoju
+        async function createRoom() {
+            if (!currentUser) return;
+            const nickname = document.getElementById('input-nickname').value.trim();
+            if (nickname.length < 2) {
+                showToast('Wpisz swój nick (minimum 2 znaki).', 'error');
+                return;
+            }
+
+            playSound('click');
+            const btn = document.getElementById('btn-create-room');
+            btn.disabled = true;
+
+            try {
+                let code = generateRoomCode();
+                let roomRef = getRoomDocRef(code);
+                let existing = await getDoc(roomRef);
+                // Upewniamy się, że kod jest unikalny
+                let attempts = 0;
+                while (existing.exists() && attempts < 5) {
+                    code = generateRoomCode();
+                    roomRef = getRoomDocRef(code);
+                    existing = await getDoc(roomRef);
+                    attempts++;
+                }
+
+                const newRoom = {
+                    code,
+                    hostId: currentUser.uid,
+                    phase: 'lobby',
+                    maxRounds: 5,
+                    currentRound: 0,
+                    createdAt: Date.now(),
+                    usedWordIndices: [],
+                    players: {
+                        [currentUser.uid]: {
+                            uid: currentUser.uid,
+                            name: nickname,
+                            score: 0,
+                            joinedAt: Date.now()
+                        }
+                    },
+                    roundData: null
+                };
+
+                await setDoc(roomRef, newRoom);
+                subscribeToRoom(code);
+                showToast(`Utworzono pokój ${code}!`, 'success');
+            } catch (err) {
+                console.error('Błąd tworzenia pokoju:', err);
+                showToast('Nie udało się utworzyć pokoju. Spróbuj ponownie.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Dołączanie do istniejącego pokoju
+        async function joinRoom() {
+            if (!currentUser) return;
+            const nickname = document.getElementById('input-nickname').value.trim();
+            const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+
+            if (nickname.length < 2) {
+                showToast('Wpisz swój nick (minimum 2 znaki).', 'error');
+                return;
+            }
+            if (code.length < 4) {
+                showToast('Wpisz poprawny kod pokoju.', 'error');
+                return;
+            }
+
+            playSound('click');
+            const btn = document.getElementById('btn-join-room');
+            btn.disabled = true;
+
+            try {
+                const roomRef = getRoomDocRef(code);
+                const snap = await getDoc(roomRef);
+
+                if (!snap.exists()) {
+                    showToast(`Pokój o kodzie "${code}" nie istnieje.`, 'error');
+                    return;
+                }
+
+                const data = snap.data();
+                const alreadyInRoom = data.players && data.players[currentUser.uid];
+
+                if (data.phase !== 'lobby' && !alreadyInRoom) {
+                    showToast('Gra w tym pokoju już trwa! Poczekaj na nową grę.', 'error');
+                    return;
+                }
+
+                if (!alreadyInRoom) {
+                    await updateDoc(roomRef, {
+                        [`players.${currentUser.uid}`]: {
+                            uid: currentUser.uid,
+                            name: nickname,
+                            score: 0,
+                            joinedAt: Date.now()
+                        }
+                    });
+                } else if (data.players[currentUser.uid].name !== nickname) {
+                    await updateDoc(roomRef, {
+                        [`players.${currentUser.uid}.name`]: nickname
+                    });
+                }
+
+                subscribeToRoom(code);
+                showToast(`Dołączono do pokoju ${code}!`, 'success');
+            } catch (err) {
+                console.error('Błąd dołączania:', err);
+                showToast('Błąd podczas dołączania do pokoju.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Opuszczenie pokoju
+        async function leaveRoom() {
+            if (!currentUser || !currentRoomCode) return;
+            playSound('click');
+            const codeToLeave = currentRoomCode;
+
+            if (unsubscribeRoom) {
+                unsubscribeRoom();
+                unsubscribeRoom = null;
+            }
+
+            try {
+                const roomRef = getRoomDocRef(codeToLeave);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(roomRef);
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    const players = { ...(data.players || {}) };
+                    delete players[currentUser.uid];
+
+                    const remainingIds = Object.keys(players);
+                    if (remainingIds.length === 0) {
+                        tx.delete(roomRef);
+                        return;
+                    }
+
+                    const updates = {
+                        [`players.${currentUser.uid}`]: deleteField()
+                    };
+
+                    // Jeśli wyszedł Gospodarz, przekaż rolę kolejnemu graczowi
+                    if (data.hostId === currentUser.uid) {
+                        remainingIds.sort((a, b) => players[a].joinedAt - players[b].joinedAt);
+                        updates.hostId = remainingIds[0];
+                    }
+
+                    // Jeśli w trakcie gry zostało mniej niż 2 graczy, wróć do lobby
+                    if (data.phase !== 'lobby' && remainingIds.length < 2) {
+                        updates.phase = 'lobby';
+                        updates.roundData = null;
+                    } else if (data.phase === 'clues' && data.roundData) {
+                        // Jeśli wyszedł gracz w trakcie tury skojarzeń, usuń go z kolejki
+                        const newOrder = (data.roundData.turnOrder || []).filter(id => id !== currentUser.uid);
+                        let newIdx = data.roundData.currentTurnIndex || 0;
+                        const removedIdx = (data.roundData.turnOrder || []).indexOf(currentUser.uid);
+                        if (removedIdx !== -1 && removedIdx < newIdx) {
+                            newIdx = Math.max(0, newIdx - 1);
+                        }
+                        updates['roundData.turnOrder'] = newOrder;
+                        updates['roundData.currentTurnIndex'] = newIdx;
+                        if (newIdx >= newOrder.length) {
+                            updates.phase = 'voting';
+                        }
+                    }
+
+                    tx.update(roomRef, updates);
+                });
+            } catch (err) {
+                console.error('Błąd przy opuszczaniu pokoju:', err);
+            }
+
+            currentRoomCode = null;
+            currentRoomData = null;
+            lastPhase = null;
+            showView('view-home');
+            showToast('Opuszczono pokój.');
+        }
+
+        // Nasłuchiwanie pokoju w czasie rzeczywistym
+        function subscribeToRoom(roomCode) {
+            if (!currentUser) return;
+            if (unsubscribeRoom) unsubscribeRoom();
+
+            currentRoomCode = roomCode;
+            const roomRef = getRoomDocRef(roomCode);
+
+            unsubscribeRoom = onSnapshot(roomRef, (snap) => {
+                if (!snap.exists()) {
+                    showToast('Pokój został zamknięty.', 'error');
+                    currentRoomCode = null;
+                    currentRoomData = null;
+                    if (unsubscribeRoom) unsubscribeRoom();
+                    unsubscribeRoom = null;
+                    showView('view-home');
+                    return;
+                }
+
+                const data = snap.data();
+                currentRoomData = data;
+
+                // Efekty dźwiękowe przy zmianie fazy lub tury
+                if (lastPhase !== data.phase) {
+                    if (data.phase === 'impostor_guess') playSound('alert');
+                    else if (data.phase === 'round_summary' || data.phase === 'game_over') playSound('win');
+                    else if (lastPhase !== null) playSound('turn');
+                    lastPhase = data.phase;
+                }
+
+                renderRoomState(data);
+            }, (error) => {
+                console.error('Błąd onSnapshot:', error);
+                showToast('Utracono połączenie z pokojem.', 'error');
+            });
+        }
+
+        // Rozpoczęcie nowej rundy (wywoływane przez Gospodarza)
+        async function startNewRound() {
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+            if (currentRoomData.hostId !== currentUser.uid) return;
+
+            const playerIds = Object.keys(currentRoomData.players || {});
+            if (playerIds.length < 3) {
+                showToast('Potrzeba minimum 3 graczy, aby rozpocząć!', 'error');
+                return;
+            }
+
+            playSound('click');
+
+            try {
+                const roomRef = getRoomDocRef(currentRoomCode);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(roomRef);
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    const pIds = Object.keys(data.players || {});
+                    if (pIds.length < 3) return;
+
+                    // Losowanie hasła bez powtórzeń w sesji
+                    let used = Array.isArray(data.usedWordIndices) ? [...data.usedWordIndices] : [];
+                    let available = [];
+                    for (let i = 0; i < WORD_DATABASE.length; i++) {
+                        if (!used.includes(i)) available.push(i);
+                    }
+                    if (available.length === 0) {
+                        used = [];
+                        for (let i = 0; i < WORD_DATABASE.length; i++) available.push(i);
+                    }
+
+                    const chosenIndex = available[Math.floor(Math.random() * available.length)];
+                    const wordObj = WORD_DATABASE[chosenIndex];
+                    used.push(chosenIndex);
+
+                    // Losowanie Impostora i kolejności pisania
+                    const impostorId = pIds[Math.floor(Math.random() * pIds.length)];
+                    const turnOrder = shuffleArray(pIds);
+
+                    tx.update(roomRef, {
+                        phase: 'role',
+                        currentRound: (data.currentRound || 0) + 1,
+                        usedWordIndices: used,
+                        roundData: {
+                            wordIndex: chosenIndex,
+                            word: wordObj.word,
+                            hint: wordObj.hint,
+                            category: wordObj.category,
+                            impostorId,
+                            turnOrder,
+                            currentTurnIndex: 0,
+                            readyPlayers: {},
+                            clues: [],
+                            votes: {},
+                            eliminatedId: null,
+                            isTie: false,
+                            impostorGuess: '',
+                            roundOutcome: null,
+                            pointsAwarded: {}
+                        }
+                    });
+                });
+            } catch (err) {
+                console.error('Błąd startu rundy:', err);
+                showToast('Nie udało się rozpocząć rundy.', 'error');
+            }
+        }
+
+        // Potwierdzenie zapoznania się z sekretną kartą
+        async function markRoleReady() {
+            if (!currentUser || !currentRoomCode) return;
+            playSound('click');
+
+            try {
+                const roomRef = getRoomDocRef(currentRoomCode);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(roomRef);
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    if (data.phase !== 'role' || !data.roundData) return;
+
+                    const readyPlayers = { ...(data.roundData.readyPlayers || {}), [currentUser.uid]: true };
+                    const playerIds = Object.keys(data.players || {});
+                    const allReady = playerIds.every(uid => readyPlayers[uid]);
+
+                    const updates = {
+                        [`roundData.readyPlayers.${currentUser.uid}`]: true
+                    };
+                    if (allReady) {
+                        updates.phase = 'clues';
+                    }
+                    tx.update(roomRef, updates);
+                });
+            } catch (err) {
+                console.error('Błąd potwierdzenia gotowości:', err);
+                showToast('Błąd zapisu gotowości.', 'error');
+            }
+        }
+
+        // Wysłanie skojarzenia w swojej turze
+        async function submitClue(e) {
+            e.preventDefault();
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+
+            const input = document.getElementById('input-clue');
+            const text = input.value.trim();
+            if (!text) {
+                showToast('Wpisz swoje skojarzenie!', 'error');
+                return;
+            }
+
+            // Ochrona przed przypadkowym wpisaniem dokładnego hasła przez zwykłego gracza
+            const rd = currentRoomData.roundData;
+            if (rd && rd.impostorId !== currentUser.uid) {
+                if (normalizePolishWord(text) === normalizePolishWord(rd.word)) {
+                    showToast('Nie możesz wpisać dokładnego tajnego hasła! Podaj skojarzenie.', 'error');
+                    return;
+                }
+            }
+
+            playSound('click');
+            const btn = document.getElementById('btn-submit-clue');
+            btn.disabled = true;
+
+            try {
+                const roomRef = getRoomDocRef(currentRoomCode);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(roomRef);
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    if (data.phase !== 'clues' || !data.roundData) return;
+
+                    const order = data.roundData.turnOrder || [];
+                    const idx = data.roundData.currentTurnIndex || 0;
+                    if (order[idx] !== currentUser.uid) return;
+
+                    const playerName = data.players[currentUser.uid]?.name || 'Gracz';
+                    const newClues = [...(data.roundData.clues || []), {
+                        uid: currentUser.uid,
+                        name: playerName,
+                        text
+                    }];
+
+                    const nextIdx = idx + 1;
+                    const updates = {
+                        'roundData.clues': newClues,
+                        'roundData.currentTurnIndex': nextIdx
+                    };
+
+                    if (nextIdx >= order.length) {
+                        updates.phase = 'voting';
+                    }
+
+                    tx.update(roomRef, updates);
+                });
+                input.value = '';
+            } catch (err) {
+                console.error('Błąd wysyłania skojarzenia:', err);
+                showToast('Nie udało się wysłać skojarzenia.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Oddanie głosu na podejrzanego
+        async function castVote(targetUid) {
+            if (!currentUser || !currentRoomCode) return;
+            if (targetUid === currentUser.uid) {
+                showToast('Nie możesz głosować na siebie!', 'error');
+                return;
+            }
+
+            playSound('click');
+
+            try {
+                const roomRef = getRoomDocRef(currentRoomCode);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(roomRef);
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    if (data.phase !== 'voting' || !data.roundData) return;
+                    if (data.roundData.votes && data.roundData.votes[currentUser.uid]) return; // Już zagłosował
+
+                    const votes = { ...(data.roundData.votes || {}), [currentUser.uid]: targetUid };
+                    const playerIds = Object.keys(data.players || {});
+                    const allVoted = playerIds.every(uid => Boolean(votes[uid]));
+
+                    const updates = {
+                        [`roundData.votes.${currentUser.uid}`]: targetUid
+                    };
+
+                    if (allVoted) {
+                        // Podliczanie głosów
+                        const counts = {};
+                        Object.values(votes).forEach(votedUid => {
+                            counts[votedUid] = (counts[votedUid] || 0) + 1;
+                        });
+
+                        let maxVotes = 0;
+                        let leaders = [];
+                        Object.entries(counts).forEach(([uid, count]) => {
+                            if (count > maxVotes) {
+                                maxVotes = count;
+                                leaders = [uid];
+                            } else if (count === maxVotes) {
+                                leaders.push(uid);
+                            }
+                        });
+
+                        const isTie = leaders.length !== 1;
+                        const eliminatedId = isTie ? null : leaders[0];
+                        const impostorId = data.roundData.impostorId;
+
+                        updates['roundData.isTie'] = isTie;
+                        updates['roundData.eliminatedId'] = eliminatedId;
+
+                        if (!isTie && eliminatedId === impostorId) {
+                            // Impostor wygłosowany -> OSTATECZNA SZANSA!
+                            updates.phase = 'impostor_guess';
+                        } else {
+                            // Wygłosowano niewinną osobę lub remis -> Impostor wygrywa rundę (+3 pkt)
+                            updates.phase = 'round_summary';
+                            updates['roundData.roundOutcome'] = 'impostor_escaped';
+                            const pointsAwarded = { [impostorId]: 3 };
+                            updates['roundData.pointsAwarded'] = pointsAwarded;
+                            if (data.players[impostorId]) {
+                                updates[`players.${impostorId}.score`] = (data.players[impostorId].score || 0) + 3;
+                            }
+                        }
+                    }
+
+                    tx.update(roomRef, updates);
+                });
+            } catch (err) {
+                console.error('Błąd głosowania:', err);
+                showToast('Nie udało się zapisać głosu.', 'error');
+            }
+        }
+
+        // Ostateczny strzał Impostora
+        async function submitImpostorGuess(e) {
+            e.preventDefault();
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+
+            const input = document.getElementById('input-impostor-guess');
+            const guess = input.value.trim();
+            if (!guess) {
+                showToast('Wpisz swoje typowane hasło!', 'error');
+                return;
+            }
+
+            playSound('click');
+            const btn = document.getElementById('btn-submit-guess');
+            btn.disabled = true;
+
+            try {
+                const roomRef = getRoomDocRef(currentRoomCode);
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(roomRef);
+                    if (!snap.exists()) return;
+                    const data = snap.data();
+                    if (data.phase !== 'impostor_guess' || !data.roundData) return;
+                    if (data.roundData.impostorId !== currentUser.uid) return;
+
+                    const isCorrect = normalizePolishWord(guess) === normalizePolishWord(data.roundData.word);
+                    const impostorId = data.roundData.impostorId;
+                    const pointsAwarded = {};
+                    const updates = {
+                        phase: 'round_summary',
+                        'roundData.impostorGuess': guess,
+                        'roundData.roundOutcome': isCorrect ? 'impostor_guessed' : 'crew_won'
+                    };
+
+                    if (isCorrect) {
+                        // Impostor zgadł hasło -> +3 pkt dla Impostora
+                        pointsAwarded[impostorId] = 3;
+                        if (data.players[impostorId]) {
+                            updates[`players.${impostorId}.score`] = (data.players[impostorId].score || 0) + 3;
+                        }
+                    } else {
+                        // Impostor chybił -> +2 pkt dla każdego z pozostałych graczy
+                        Object.keys(data.players || {}).forEach(uid => {
+                            if (uid !== impostorId) {
+                                pointsAwarded[uid] = 2;
+                                updates[`players.${uid}.score`] = (data.players[uid].score || 0) + 2;
+                            }
+                        });
+                    }
+
+                    updates['roundData.pointsAwarded'] = pointsAwarded;
+                    tx.update(roomRef, updates);
+                });
+                input.value = '';
+            } catch (err) {
+                console.error('Błąd wysyłania strzału:', err);
+                showToast('Nie udało się wysłać odpowiedzi.', 'error');
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        // Zakończenie gry i wyświetlenie podium
+        async function endGameToPodium() {
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+            if (currentRoomData.hostId !== currentUser.uid) return;
+            playSound('win');
+
+            try {
+                await updateDoc(getRoomDocRef(currentRoomCode), {
+                    phase: 'game_over'
+                });
+            } catch (err) {
+                console.error('Błąd kończenia gry:', err);
+            }
+        }
+
+        // Reset gry i powrót do lobby
+        async function resetGameToLobby() {
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+            if (currentRoomData.hostId !== currentUser.uid) return;
+            playSound('click');
+
+            try {
+                const updates = {
+                    phase: 'lobby',
+                    currentRound: 0,
+                    usedWordIndices: [],
+                    roundData: null
+                };
+                Object.keys(currentRoomData.players || {}).forEach(uid => {
+                    updates[`players.${uid}.score`] = 0;
+                });
+                await updateDoc(getRoomDocRef(currentRoomCode), updates);
+            } catch (err) {
+                console.error('Błąd resetu gry:', err);
+            }
+        }
+
+        // =========================================================================
+        // 7. RENDEROWANIE INTERFEJSU DLA KAŻDEJ FAZY
+        // =========================================================================
+        function renderRoomState(data) {
+            const phase = data.phase;
+            if (phase === 'lobby') {
+                showView('view-lobby');
+                renderLobby(data);
+            } else if (phase === 'role') {
+                showView('view-role');
+                renderRolePhase(data);
+            } else if (phase === 'clues') {
+                showView('view-clues');
+                renderCluesPhase(data);
+            } else if (phase === 'voting') {
+                showView('view-voting');
+                renderVotingPhase(data);
+            } else if (phase === 'impostor_guess') {
+                showView('view-impostor-guess');
+                renderImpostorGuessPhase(data);
+            } else if (phase === 'round_summary') {
+                showView('view-summary');
+                renderSummaryPhase(data);
+            } else if (phase === 'game_over') {
+                showView('view-gameover');
+                renderGameOverPhase(data);
+            }
+        }
+
+        function getSortedPlayers(playersObj, byScore = false) {
+            const list = Object.values(playersObj || {});
+            if (byScore) {
+                return list.sort((a, b) => (b.score || 0) - (a.score || 0) || a.joinedAt - b.joinedAt);
+            }
+            return list.sort((a, b) => a.joinedAt - b.joinedAt);
+        }
+
+        // --- RENDER LOBBY ---
+        function renderLobby(data) {
+            const isHost = data.hostId === currentUser.uid;
+            const players = getSortedPlayers(data.players, false);
+
+            document.getElementById('lobby-room-code').textContent = data.code;
+            document.getElementById('lobby-player-count').textContent = players.length;
+
+            const selectRounds = document.getElementById('select-rounds');
+            selectRounds.value = String(data.maxRounds ?? 5);
+            selectRounds.disabled = !isHost;
+
+            const listEl = document.getElementById('lobby-players-list');
+            listEl.innerHTML = players.map(p => {
+                const isMe = p.uid === currentUser.uid;
+                const isRoomHost = p.uid === data.hostId;
+                return `
+                    <div class="flex items-center justify-between p-3.5 rounded-2xl bg-[#160306]/90 border ${isMe ? 'border-red-500/70' : 'border-red-900/60'}">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-red-600 to-red-950 border border-red-400/40 flex items-center justify-center font-display font-bold text-white flex-shrink-0">
+                                ${escapeHtml(p.name.charAt(0).toUpperCase())}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold text-white truncate flex items-center gap-1.5">
+                                    <span>${escapeHtml(p.name)}</span>
+                                    ${isMe ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-600/40 text-red-200 uppercase">Ty</span>' : ''}
+                                </p>
+                                <p class="text-xs text-red-400/80">${p.score || 0} pkt</p>
+                            </div>
+                        </div>
+                        ${isRoomHost ? '<span class="px-2.5 py-1 rounded-xl bg-red-600/25 border border-red-500/50 text-red-300 text-[11px] font-bold uppercase tracking-wider">Host</span>' : ''}
+                    </div>
+                `;
+            }).join('');
+
+            const minWarn = document.getElementById('lobby-min-warning');
+            const startBtn = document.getElementById('btn-start-game');
+            const waitBox = document.getElementById('lobby-waiting-host');
+
+            if (players.length < 3) {
+                minWarn.classList.remove('hidden');
+                document.getElementById('lobby-needed-count').textContent = 3 - players.length;
+            } else {
+                minWarn.classList.add('hidden');
+            }
+
+            if (isHost) {
+                startBtn.classList.remove('hidden');
+                startBtn.disabled = players.length < 3;
+                waitBox.classList.add('hidden');
+            } else {
+                startBtn.classList.add('hidden');
+                waitBox.classList.remove('hidden');
+            }
+        }
+
+        // --- RENDER FAZA 1: ROLA ---
+        function renderRolePhase(data) {
+            const rd = data.roundData;
+            if (!rd) return;
+
+            const isImpostor = rd.impostorId === currentUser.uid;
+            const roundLabel = data.maxRounds > 0 
+                ? `Runda ${data.currentRound} z ${data.maxRounds}` 
+                : `Runda ${data.currentRound}`;
+            document.getElementById('role-round-badge').textContent = roundLabel;
+
+            const cardContent = document.getElementById('role-secret-content');
+            const cardContainer = document.getElementById('role-card-container');
+
+            if (isImpostor) {
+                cardContainer.classList.add('pulse-red');
+                cardContent.innerHTML = `
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-600/30 border border-red-500 text-red-200 text-xs font-extrabold uppercase tracking-widest mb-4">
+                        Twoja Rola
+                    </div>
+                    <h3 class="font-display text-4xl sm:text-5xl font-extrabold text-red-500 tracking-wide mb-3">
+                        JESTEŚ IMPOSTOREM
+                    </h3>
+                    <p class="text-sm text-red-200/85 mb-6 max-w-sm mx-auto">
+                        Nie znasz tajnego hasła! Wtop się w tłum, wpisz sprytne skojarzenie i postaraj się wywnioskować hasło z odpowiedzi innych.
+                    </p>
+                    <div class="inline-block w-full max-w-sm bg-[#160306] border border-red-500/70 rounded-2xl p-5">
+                        <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-1">Twoja podpowiedź</p>
+                        <p class="font-display text-2xl sm:text-3xl font-extrabold text-white">${escapeHtml(rd.hint)}</p>
+                    </div>
+                `;
+            } else {
+                cardContainer.classList.remove('pulse-red');
+                cardContent.innerHTML = `
+                    <div class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-red-950 border border-red-700/60 text-red-300 text-xs font-bold uppercase tracking-widest mb-4">
+                        Kategoria: ${escapeHtml(rd.category)}
+                    </div>
+                    <p class="text-xs font-bold uppercase tracking-widest text-red-400 mb-1">Tajne hasło tej rundy</p>
+                    <h3 class="font-display text-4xl sm:text-5xl font-extrabold text-white tracking-wide mb-4">
+                        ${escapeHtml(rd.word)}
+                    </h3>
+                    <p class="text-sm text-red-200/80 max-w-sm mx-auto">
+                        Jesteś członkiem załogi. Podaj skojarzenie, które udowodni innym, że znasz hasło, ale nie podpowie go Impostorowi!
+                    </p>
+                `;
+            }
+
+            const totalPlayers = Object.keys(data.players || {}).length;
+            const readyCount = Object.keys(rd.readyPlayers || {}).length;
+            document.getElementById('role-ready-count').textContent = `${readyCount} / ${totalPlayers}`;
+
+            const readyBtn = document.getElementById('btn-role-ready');
+            const amIReady = Boolean(rd.readyPlayers && rd.readyPlayers[currentUser.uid]);
+            if (amIReady) {
+                readyBtn.disabled = true;
+                readyBtn.textContent = 'Czekam na pozostałych...';
+            } else {
+                readyBtn.disabled = false;
+                readyBtn.textContent = 'Zapamiętałem, gotowy!';
+            }
+        }
+
+        // --- RENDER FAZA 2: SKOJARZENIA TUROWO ---
+        function renderCluesPhase(data) {
+            const rd = data.roundData;
+            if (!rd) return;
+
+            const order = rd.turnOrder || [];
+            const idx = rd.currentTurnIndex || 0;
+            const activeUid = order[idx];
+            const activePlayer = data.players[activeUid];
+            const isMyTurn = activeUid === currentUser.uid;
+            const isImpostor = rd.impostorId === currentUser.uid;
+
+            if (lastTurnIndex !== idx) {
+                if (isMyTurn) playSound('turn');
+                lastTurnIndex = idx;
+            }
+
+            const banner = document.getElementById('clues-turn-banner');
+            if (isMyTurn) {
+                banner.innerHTML = `<span class="text-red-400">TWOJA TURA!</span> Wpisz skojarzenie`;
+            } else {
+                banner.innerHTML = `Teraz pisze: <span class="text-red-400">${escapeHtml(activePlayer ? activePlayer.name : '...')}</span>`;
+            }
+
+            document.getElementById('clues-progress-pill').textContent = `Tura ${Math.min(idx + 1, order.length)} / ${order.length}`;
+
+            // Mini przypomnienie hasła/podpowiedzi
+            document.getElementById('clues-reminder-label').textContent = isImpostor ? 'Twoja podpowiedź (Impostor)' : `Tajne hasło (${rd.category})`;
+            document.getElementById('clues-reminder-value').textContent = isImpostor ? rd.hint : rd.word;
+
+            // Input odblokowany tylko dla aktywnego gracza
+            const inputClue = document.getElementById('input-clue');
+            const btnSubmit = document.getElementById('btn-submit-clue');
+            inputClue.disabled = !isMyTurn;
+            btnSubmit.disabled = !isMyTurn;
+            inputClue.placeholder = isMyTurn ? 'Wpisz jedno słowo lub krótkie skojarzenie...' : 'Poczekaj na swoją kolej...';
+
+            // Lista podanych skojarzeń
+            const cluesList = document.getElementById('clues-list');
+            const clues = rd.clues || [];
+            if (clues.length === 0) {
+                cluesList.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center py-10 text-center text-red-300/60 border border-dashed border-red-900/70 rounded-2xl">
+                        <p class="text-sm font-medium">Jeszcze nikt nie podał skojarzenia.</p>
+                        <p class="text-xs mt-1">Pierwsza osoba właśnie myśli...</p>
+                    </div>
+                `;
+            } else {
+                cluesList.innerHTML = clues.map((c, i) => `
+                    <div class="flex items-center justify-between gap-3 p-3.5 rounded-2xl bg-[#160306]/90 border border-red-800/60 animate-fade-in">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-7 h-7 rounded-lg bg-red-950 border border-red-700/60 text-red-400 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                                ${i + 1}
+                            </span>
+                            <span class="text-sm font-semibold text-red-200 truncate">${escapeHtml(c.name)}</span>
+                        </div>
+                        <span class="px-3.5 py-1.5 rounded-xl bg-red-600/20 border border-red-500/40 font-display font-bold text-white text-base">
+                            ${escapeHtml(c.text)}
+                        </span>
+                    </div>
+                `).join('');
+            }
+
+            // Kolejność graczy
+            const orderEl = document.getElementById('clues-order-list');
+            orderEl.innerHTML = order.map((uid, i) => {
+                const p = data.players[uid];
+                const name = p ? p.name : 'Gracz';
+                let cls = 'bg-[#180407] border-red-900/60 text-red-400/70';
+                if (i < idx) cls = 'bg-red-950/60 border-red-800/40 text-red-300/60 line-through';
+                else if (i === idx) cls = 'bg-red-600 border-red-400 text-white font-bold shadow-md shadow-red-600/40';
+                return `<span class="px-2.5 py-1 rounded-lg border text-xs ${cls}">${escapeHtml(name)}</span>`;
+            }).join('');
+        }
+
+        // --- RENDER FAZA 3: GŁOSOWANIE ---
+        function renderVotingPhase(data) {
+            const rd = data.roundData;
+            if (!rd) return;
+
+            const players = getSortedPlayers(data.players, false);
+            const votes = rd.votes || {};
+            const myVote = votes[currentUser.uid] || null;
+            const votedCount = Object.keys(votes).length;
+
+            document.getElementById('voting-progress-text').textContent = `${votedCount} / ${players.length}`;
+
+            const statusBanner = document.getElementById('voting-status-banner');
+            if (myVote) statusBanner.classList.remove('hidden');
+            else statusBanner.classList.add('hidden');
+
+            // Mapa skojarzeń po UID
+            const clueByUid = {};
+            (rd.clues || []).forEach(c => { clueByUid[c.uid] = c.text; });
+
+            const grid = document.getElementById('voting-grid');
+            grid.innerHTML = players.map(p => {
+                const isMe = p.uid === currentUser.uid;
+                const isSelected = myVote === p.uid;
+                const hasVoted = Boolean(votes[p.uid]);
+                const clueText = clueByUid[p.uid] || '(brak)';
+
+                return `
+                    <div class="crimson-card rounded-3xl p-5 flex flex-col justify-between gap-4 transition-all ${isSelected ? 'pulse-red' : ''}">
+                        <div>
+                            <div class="flex items-center justify-between gap-2 mb-3">
+                                <div class="flex items-center gap-2.5 min-w-0">
+                                    <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-red-600 to-red-950 border border-red-500/40 flex items-center justify-center font-display font-bold text-white flex-shrink-0">
+                                        ${escapeHtml(p.name.charAt(0).toUpperCase())}
+                                    </div>
+                                    <span class="font-bold text-white truncate">${escapeHtml(p.name)} ${isMe ? '(Ty)' : ''}</span>
+                                </div>
+                                ${hasVoted ? '<span class="text-[10px] px-2 py-0.5 rounded-full bg-red-600/30 border border-red-500/50 text-red-200 font-semibold">Zagłosował ✓</span>' : ''}
+                            </div>
+                            <div class="p-3.5 rounded-2xl bg-[#160306] border border-red-900/70">
+                                <p class="text-[10px] font-bold uppercase tracking-wider text-red-400 mb-0.5">Skojarzenie</p>
+                                <p class="font-display text-lg font-bold text-white break-words">"${escapeHtml(clueText)}"</p>
+                            </div>
+                        </div>
+
+                        <button 
+                            data-vote-uid="${p.uid}"
+                            ${isMe || myVote ? 'disabled' : ''}
+                            class="vote-btn w-full py-3 px-4 rounded-2xl font-display font-bold text-sm transition ${
+                                isSelected 
+                                    ? 'bg-red-600 text-white border border-red-300' 
+                                    : isMe 
+                                        ? 'bg-[#180407] text-red-400/40 border border-red-950 cursor-not-allowed'
+                                        : 'btn-crimson text-white'
+                            }"
+                        >
+                            ${isSelected ? 'Twój głos ✓' : isMe ? 'To jesteś Ty' : 'Głosuj na tego gracza'}
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            // Podpięcie zdarzeń kliknięcia dla przycisków głosowania
+            grid.querySelectorAll('.vote-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const target = btn.getAttribute('data-vote-uid');
+                    if (target) castVote(target);
+                });
+            });
+        }
+
+        // --- RENDER FAZA 4: OSTATECZNA SZANSA IMPOSTORA ---
+        function renderImpostorGuessPhase(data) {
+            const rd = data.roundData;
+            if (!rd) return;
+
+            const isImpostor = rd.impostorId === currentUser.uid;
+            const impostorName = data.players[rd.impostorId]?.name || 'Impostor';
+
+            document.getElementById('guess-impostor-announce').innerHTML = 
+                `Gracze poprawnie wygłosowali <strong class="text-red-400">${escapeHtml(impostorName)}</strong> jako Impostora!`;
+
+            const impPanel = document.getElementById('guess-impostor-panel');
+            const waitPanel = document.getElementById('guess-waiting-panel');
+
+            if (isImpostor) {
+                impPanel.classList.remove('hidden');
+                waitPanel.classList.add('hidden');
+                document.getElementById('guess-hint-reminder').textContent = rd.hint;
+            } else {
+                impPanel.classList.add('hidden');
+                waitPanel.classList.remove('hidden');
+            }
+
+            // Przypomnienie skojarzeń
+            const recapEl = document.getElementById('guess-clues-recap');
+            recapEl.innerHTML = (rd.clues || []).map(c => `
+                <span class="px-3 py-1.5 rounded-xl bg-[#160306] border border-red-800/60 text-xs text-red-100">
+                    <span class="text-red-400 font-semibold">${escapeHtml(c.name)}:</span> ${escapeHtml(c.text)}
+                </span>
+            `).join('');
+        }
+
+        // --- RENDER FAZA 5: PODSUMOWANIE RUNDY ---
+        function renderSummaryPhase(data) {
+            const rd = data.roundData;
+            if (!rd) return;
+
+            const isHost = data.hostId === currentUser.uid;
+            const impostorName = data.players[rd.impostorId]?.name || 'Nieznany';
+            const eliminatedName = rd.eliminatedId ? (data.players[rd.eliminatedId]?.name || 'Gracz') : null;
+
+            document.getElementById('summary-round-label').textContent = data.maxRounds > 0
+                ? `Podsumowanie Rundy ${data.currentRound} z ${data.maxRounds}`
+                : `Podsumowanie Rundy ${data.currentRound}`;
+
+            const headline = document.getElementById('summary-headline');
+            const subtext = document.getElementById('summary-subtext');
+
+            if (rd.roundOutcome === 'impostor_escaped') {
+                headline.innerHTML = `<span class="text-red-400">IMPOSTOR WYGRYWA RUNDĘ!</span>`;
+                subtext.textContent = rd.isTie
+                    ? `W głosowaniu padł remis! ${impostorName} uniknął zdemaskowania i zdobywa +3 pkt.`
+                    : `Gracze wygłosowali niewinną osobę (${eliminatedName})! ${impostorName} przechytrzył wszystkich i zdobywa +3 pkt.`;
+            } else if (rd.roundOutcome === 'impostor_guessed') {
+                headline.innerHTML = `<span class="text-red-400">IMPOSTOR ODGADŁ HASŁO!</span>`;
+                subtext.textContent = `${impostorName} został wygłosowany, ale w ostatecznej szansie trafnie odgadł hasło "${rd.word}" i zgarnia +3 pkt!`;
+            } else {
+                headline.innerHTML = `<span class="text-white">ZAŁOGA WYGRYWA RUNDĘ!</span>`;
+                subtext.textContent = `${impostorName} został wygłosowany i nie odgadł hasła. Wszyscy pozostali gracze zdobywają po +2 pkt!`;
+            }
+
+            document.getElementById('summary-impostor-name').textContent = impostorName;
+            document.getElementById('summary-hint').textContent = rd.hint;
+            document.getElementById('summary-word').textContent = rd.word;
+            document.getElementById('summary-category').textContent = rd.category;
+
+            document.getElementById('summary-voted-out').textContent = rd.isTie 
+                ? 'Remis w głosowaniu' 
+                : `Wygłosowano: ${eliminatedName}`;
+
+            const guessBox = document.getElementById('summary-guess-box');
+            if (rd.impostorGuess) {
+                guessBox.classList.remove('hidden');
+                document.getElementById('summary-guess-text').textContent = `"${rd.impostorGuess}"`;
+            } else {
+                guessBox.classList.add('hidden');
+            }
+
+            // Tabela wyników posortowana od najwyższego wyniku
+            const sortedPlayers = getSortedPlayers(data.players, true);
+            const pointsAwarded = rd.pointsAwarded || {};
+            const lbEl = document.getElementById('summary-leaderboard');
+            lbEl.innerHTML = sortedPlayers.map((p, idx) => {
+                const gained = pointsAwarded[p.uid] || 0;
+                const isImpostor = p.uid === rd.impostorId;
+                return `
+                    <div class="flex items-center justify-between p-3.5 rounded-2xl bg-[#160306]/90 border ${idx === 0 ? 'border-red-500/80 shadow-md shadow-red-600/20' : 'border-red-900/60'}">
+                        <div class="flex items-center gap-3 min-w-0">
+                            <span class="w-8 h-8 rounded-xl ${idx === 0 ? 'bg-red-600 text-white' : 'bg-red-950 text-red-300'} font-display font-bold flex items-center justify-center flex-shrink-0">
+                                #${idx + 1}
+                            </span>
+                            <div class="min-w-0">
+                                <p class="font-bold text-white truncate flex items-center gap-2">
+                                    <span>${escapeHtml(p.name)}</span>
+                                    ${isImpostor ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-600/35 border border-red-500/60 text-red-200 uppercase">Impostor</span>' : ''}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2.5 flex-shrink-0">
+                            ${gained > 0 ? `<span class="text-xs font-extrabold text-red-400 bg-red-950 px-2 py-1 rounded-lg border border-red-700/60">+${gained} pkt</span>` : ''}
+                            <span class="font-display text-xl font-extrabold text-white">${p.score || 0} <span class="text-xs text-red-400 font-normal">pkt</span></span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // Rozkład głosów
+            const votesListEl = document.getElementById('summary-votes-list');
+            const votes = rd.votes || {};
+            votesListEl.innerHTML = Object.entries(votes).map(([voterUid, targetUid]) => {
+                const voter = data.players[voterUid]?.name || 'Gracz';
+                const target = data.players[targetUid]?.name || 'Gracz';
+                return `
+                    <div class="flex items-center justify-between py-1.5 px-3 rounded-xl bg-[#160306] border border-red-950 text-xs">
+                        <span class="text-red-200 font-medium">${escapeHtml(voter)}</span>
+                        <span class="text-red-500">→</span>
+                        <span class="text-white font-bold">${escapeHtml(target)}</span>
+                    </div>
+                `;
+            }).join('');
+
+            // Przyciski Hosta
+            const nextBtn = document.getElementById('btn-next-round');
+            const endBtn = document.getElementById('btn-end-game');
+            const waitBox = document.getElementById('summary-waiting-host');
+
+            const reachedMaxRounds = data.maxRounds > 0 && data.currentRound >= data.maxRounds;
+
+            if (isHost) {
+                waitBox.classList.add('hidden');
+                if (reachedMaxRounds) {
+                    nextBtn.classList.add('hidden');
+                    endBtn.classList.remove('hidden');
+                    endBtn.className = 'w-full btn-crimson py-4 px-5 rounded-2xl font-display font-bold text-base text-white';
+                    endBtn.textContent = 'Pokaż Podium Zwycięzców';
+                } else {
+                    nextBtn.classList.remove('hidden');
+                    endBtn.classList.remove('hidden');
+                    endBtn.className = 'w-full btn-outline-crimson py-3 px-5 rounded-2xl font-display font-bold text-sm';
+                    endBtn.textContent = 'Zakończ grę i pokaż Podium';
+                }
+            } else {
+                nextBtn.classList.add('hidden');
+                endBtn.classList.add('hidden');
+                waitBox.classList.remove('hidden');
+            }
+        }
+
+        // --- RENDER FAZA 6: PODIUM ZWYCIĘZCÓW ---
+        function renderGameOverPhase(data) {
+            const isHost = data.hostId === currentUser.uid;
+            const sorted = getSortedPlayers(data.players, true);
+
+            if (sorted.length > 0) {
+                const topScore = sorted[0].score || 0;
+                const winners = sorted.filter(p => (p.score || 0) === topScore);
+                const winnerNames = winners.map(w => w.name).join(' & ');
+                document.getElementById('gameover-winner-subtitle').innerHTML = 
+                    `Zwycięża <strong class="text-red-400 text-lg">${escapeHtml(winnerNames)}</strong> z wynikiem <strong>${topScore} pkt</strong>!`;
+            }
+
+            // Podium Top 3 (kolejność wizualna: 2, 1, 3)
+            const podiumEl = document.getElementById('gameover-podium');
+            const top3 = sorted.slice(0, 3);
+            const podiumOrder = [];
+            if (top3[1]) podiumOrder.push({ player: top3[1], place: 2, height: 'h-24', bg: 'from-red-900 to-red-950 border-red-700/70' });
+            if (top3[0]) podiumOrder.push({ player: top3[0], place: 1, height: 'h-32', bg: 'from-red-500 to-red-800 border-red-300 shadow-lg shadow-red-600/40' });
+            if (top3[2]) podiumOrder.push({ player: top3[2], place: 3, height: 'h-20', bg: 'from-[#3a0a12] to-[#1d0509] border-red-800/60' });
+
+            podiumEl.innerHTML = podiumOrder.map(item => `
+                <div class="flex flex-col items-center w-24 sm:w-32">
+                    <p class="font-bold text-white text-sm sm:text-base truncate w-full text-center mb-1">${escapeHtml(item.player.name)}</p>
+                    <p class="text-xs text-red-300 font-bold mb-2">${item.player.score || 0} pkt</p>
+                    <div class="w-full ${item.height} rounded-t-2xl bg-gradient-to-b ${item.bg} border-t border-x flex items-center justify-center">
+                        <span class="font-display text-3xl sm:text-4xl font-extrabold text-white/95">${item.place}</span>
+                    </div>
+                </div>
+            `).join('');
+
+            // Pełna lista
+            const fullList = document.getElementById('gameover-full-list');
+            fullList.innerHTML = sorted.map((p, idx) => `
+                <div class="flex items-center justify-between py-2 px-3 rounded-xl bg-[#22060b] border border-red-900/50 text-sm">
+                    <span class="font-semibold text-white"><span class="text-red-400 mr-2">#${idx + 1}</span>${escapeHtml(p.name)}</span>
+                    <span class="font-display font-bold text-red-200">${p.score || 0} pkt</span>
+                </div>
+            `).join('');
+
+            const playAgainBtn = document.getElementById('btn-play-again');
+            const waitBox = document.getElementById('gameover-waiting-host');
+            if (isHost) {
+                playAgainBtn.classList.remove('hidden');
+                waitBox.classList.add('hidden');
+            } else {
+                playAgainBtn.classList.add('hidden');
+                waitBox.classList.remove('hidden');
+            }
+        }
+
+        // =========================================================================
+        // 8. OBSŁUGA ZDARZEŃ UI
+        // =========================================================================
+        document.getElementById('btn-create-room').addEventListener('click', createRoom);
+        document.getElementById('btn-join-room').addEventListener('click', joinRoom);
+        document.getElementById('btn-leave-room').addEventListener('click', leaveRoom);
+        document.getElementById('btn-start-game').addEventListener('click', startNewRound);
+        document.getElementById('btn-role-ready').addEventListener('click', markRoleReady);
+        document.getElementById('form-clue').addEventListener('submit', submitClue);
+        document.getElementById('form-impostor-guess').addEventListener('submit', submitImpostorGuess);
+        document.getElementById('btn-next-round').addEventListener('click', startNewRound);
+        document.getElementById('btn-end-game').addEventListener('click', endGameToPodium);
+        document.getElementById('btn-play-again').addEventListener('click', resetGameToLobby);
+
+        // Enter w polu kodu pokoju dołącza do pokoju
+        document.getElementById('input-room-code').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') joinRoom();
+        });
+
+        // Zmiana liczby rund przez Hosta
+        document.getElementById('select-rounds').addEventListener('change', async (e) => {
+            if (!currentUser || !currentRoomCode || !currentRoomData) return;
+            if (currentRoomData.hostId !== currentUser.uid) return;
+            try {
+                await updateDoc(getRoomDocRef(currentRoomCode), {
+                    maxRounds: parseInt(e.target.value, 10)
+                });
+            } catch (err) {
+                console.error('Błąd zmiany liczby rund:', err);
+            }
+        });
+
+        // Kopiowanie kodu pokoju
+        document.getElementById('btn-copy-lobby').addEventListener('click', () => {
+            if (currentRoomCode) copyToClipboard(currentRoomCode);
+        });
+        document.getElementById('btn-copy-header').addEventListener('click', () => {
+            if (currentRoomCode) copyToClipboard(currentRoomCode);
+        });
+
+        // Ukrywanie/pokazywanie sekretnej karty
+        document.getElementById('btn-toggle-blur').addEventListener('click', () => {
+            const el = document.getElementById('role-secret-content');
+            const txt = document.getElementById('blur-btn-text');
+            el.classList.toggle('blur-secret');
+            txt.textContent = el.classList.contains('blur-secret') ? 'Pokaż kartę' : 'Ukryj kartę';
+        });
+
+        // Podglądanie hasła w fazie pisania skojarzeń
+        document.getElementById('btn-peek-clue').addEventListener('click', () => {
+            const val = document.getElementById('clues-reminder-value');
+            const btn = document.getElementById('btn-peek-clue');
+            val.classList.toggle('blur-secret');
+            btn.textContent = val.classList.contains('blur-secret') ? 'Podejrzyj' : 'Ukryj';
+        });
+
+        // Przełącznik dźwięku
+        document.getElementById('btn-sound-toggle').addEventListener('click', () => {
+            soundEnabled = !soundEnabled;
+            document.getElementById('icon-sound-on').classList.toggle('hidden', !soundEnabled);
+            document.getElementById('icon-sound-off').classList.toggle('hidden', soundEnabled);
+            showToast(soundEnabled ? 'Dźwięki włączone' : 'Dźwięki wyciszone');
+        });
+
+        // Modal zasad
+        const modalRules = document.getElementById('modal-rules');
+        document.getElementById('btn-rules').addEventListener('click', () => modalRules.classList.remove('hidden'));
+        document.getElementById('btn-close-rules').addEventListener('click', () => modalRules.classList.add('hidden'));
+        document.getElementById('btn-close-rules-bottom').addEventListener('click', () => modalRules.classList.add('hidden'));
+        modalRules.addEventListener('click', (e) => {
+            if (e.target === modalRules) modalRules.classList.add('hidden');
+        });
+
+        // =========================================================================
+        // 9. START APLIKACJI I UWIERZYTELNIANIE FIREBASE
+        // =========================================================================
+        async function bootstrapApp() {
+            if (!firebaseConfig) {
+                showToast('Brak konfiguracji Firebase w środowisku uruchomieniowym.', 'error');
+                document.getElementById('view-loading').innerHTML = `
+                    <div class="crimson-card p-6 rounded-3xl max-w-md text-center">
+                        <p class="text-red-400 font-bold text-lg mb-2">Brak konfiguracji bazy danych</p>
+                        <p class="text-sm text-red-200/80">Uruchom grę w środowisku z aktywną konfiguracją Firebase, aby grać online.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+
+                // Najpierw logujemy się (Custom Token lub Anonimowo) przed jakimkolwiek zapytaniem Firestore
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        currentUser = user;
+                        document.getElementById('footer-uid').textContent = user.uid;
+                        if (!currentRoomCode) {
+                            showView('view-home');
+                        }
+                    }
+                });
+            } catch (err) {
+                console.error('Błąd inicjalizacji Firebase:', err);
+                showToast('Błąd połączenia z serwerem gry.', 'error');
+            }
+        }
+
+        window.onload = bootstrapApp;
+    </script>
+</body>
+</html>
