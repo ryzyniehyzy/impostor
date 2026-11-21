@@ -1,0 +1,1939 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>IMPOSTOR — Gra Online</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --bg: #0a0103;
+    --bg2: #240308;
+    --card: rgba(30, 5, 11, 0.92);
+    --red: #ff1e38;
+    --pink: #ff4766;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    margin: 0; min-height: 100dvh; color: #fff1f2;
+    font-family: Inter, system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 15% 15%, rgba(255,30,56,.22), transparent 45%),
+                radial-gradient(circle at 85% 85%, rgba(153,27,27,.28), transparent 50%),
+                radial-gradient(circle at 50% 40%, var(--bg2), var(--bg));
+    background-attachment: fixed; overflow-x: hidden;
+  }
+  .card {
+    background: var(--card); border: 1px solid rgba(255,30,56,.34);
+    box-shadow: 0 14px 40px rgba(0,0,0,.78), 0 0 24px rgba(255,30,56,.15);
+    backdrop-filter: blur(12px);
+  }
+  .btn-red {
+    background: linear-gradient(135deg, #ff3b5c, #c8102e 60%, #7a0d20);
+    border: 1px solid rgba(255,140,160,.52); color: #fff; font-weight: 700; min-height: 44px;
+    box-shadow: 0 6px 20px rgba(255,30,56,.46); transition: transform .18s var(--ease), filter .18s;
+  }
+  .btn-red:hover:not(:disabled) { filter: brightness(1.12); transform: translateY(-1px); }
+  .btn-red:active:not(:disabled) { transform: scale(.98); }
+  .btn-red:disabled, .btn-out:disabled { opacity: .42; cursor: not-allowed; }
+  .btn-out {
+    background: rgba(58,8,18,.74); border: 1px solid rgba(255,30,56,.42); color: #fecdd3;
+    font-weight: 600; min-height: 44px; transition: all .18s var(--ease);
+  }
+  .btn-out:hover:not(:disabled) { background: rgba(136,19,55,.8); border-color: var(--pink); color: #fff; }
+
+  .stage-grid {
+    display: grid; gap: clamp(.6rem, 1.4vw, 1.1rem);
+    grid-template-columns: repeat(auto-fit, minmax(clamp(150px, 21vw, 235px), 1fr));
+  }
+  .tv-stage-grid {
+    display: grid; gap: clamp(.85rem, 1.8vw, 1.4rem);
+    grid-template-columns: repeat(auto-fit, minmax(clamp(200px, 22vw, 310px), 1fr));
+  }
+  .qr-box {
+    background: #fff; padding: 10px; border-radius: 16px; display: inline-flex;
+    align-items: center; justify-content: center; box-shadow: 0 0 32px rgba(255,30,56,.48);
+  }
+  .qr-box img { display: block; width: clamp(160px, 24vw, 220px); height: clamp(160px, 24vw, 220px); border-radius: 6px; }
+
+  .tile { position: relative; transition: transform .35s var(--ease), box-shadow .3s, opacity .3s, border-color .25s; }
+  .tile-turn {
+    border-color: #ff4766 !important; transform: translateY(-3px) scale(1.015); z-index: 5;
+    animation: turnPulse 1.1s infinite ease-in-out;
+  }
+  .tile-dead { opacity: .45; filter: grayscale(.82); }
+  @keyframes turnPulse {
+    0%,100% { box-shadow: 0 0 0 3px rgba(255,30,56,.95), 0 0 24px rgba(255,30,56,.75); }
+    50% { box-shadow: 0 0 0 5px rgba(255,95,120,1), 0 0 42px rgba(255,30,56,.95); }
+  }
+
+  /* CCTV Overlay */
+  .cctv-on .media-wrap::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 6;
+    background: repeating-linear-gradient(to bottom, rgba(255,30,56,.07) 0 1px, transparent 1px 3px);
+    box-shadow: inset 0 0 22px rgba(0,0,0,.75);
+  }
+  .cctv-rec { display: none; }
+  .cctv-on .cctv-rec { display: flex; }
+
+  /* Cosmetic Animated Frames */
+  .frame-fr_gold { border: 2.5px solid #fbbf24 !important; box-shadow: 0 0 18px rgba(251,191,36,.65), inset 0 0 12px rgba(251,191,36,.3) !important; }
+  .frame-fr_fire { border: 2.5px solid #ff5722 !important; animation: fireGlow 1.3s infinite alternate ease-in-out; }
+  @keyframes fireGlow {
+    from { box-shadow: 0 0 14px rgba(255,69,0,.7), 0 0 28px rgba(255,152,0,.45); }
+    to { box-shadow: 0 0 24px rgba(255,30,56,.95), 0 0 42px rgba(255,193,7,.65); }
+  }
+  .frame-fr_glitch { border: 2.5px solid #22d3ee !important; animation: glitchFrame 1.6s infinite steps(2, end); }
+  @keyframes glitchFrame {
+    0% { box-shadow: -3px 0 14px rgba(34,211,238,.8), 3px 0 14px rgba(255,30,56,.8); }
+    50% { box-shadow: 3px -2px 18px rgba(16,185,129,.85), -3px 2px 14px rgba(236,72,153,.8); }
+    100% { box-shadow: -2px 2px 16px rgba(34,211,238,.85), 2px -2px 16px rgba(255,30,56,.8); }
+  }
+
+  /* Cosmetic SVG Overlays */
+  .cos-hat { position: absolute; top: 1%; left: 50%; transform: translateX(-50%); width: 58%; max-width: 120px; z-index: 12; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,.65)); }
+  .cos-glasses { position: absolute; top: 34%; left: 50%; transform: translateX(-50%); width: 56%; max-width: 112px; z-index: 12; pointer-events: none; filter: drop-shadow(0 3px 5px rgba(0,0,0,.65)); }
+
+  .floater { position: absolute; left: 50%; top: 45%; z-index: 30; font-size: 2.3rem; pointer-events: none; animation: floatUp 1.9s var(--ease) forwards; }
+  @keyframes floatUp {
+    0% { opacity: 0; transform: translate(-50%, 10px) scale(.6); }
+    20% { opacity: 1; transform: translate(-50%, -8px) scale(1.2); }
+    100% { opacity: 0; transform: translate(-50%, -62px) scale(.9); }
+  }
+  @keyframes alarmFlash { 0% { opacity: 0; } 20% { opacity: .92; } 50% { opacity: .2; } 75% { opacity: .82; } 100% { opacity: 0; } }
+  .alarm-hit { animation: alarmFlash .75s ease-out forwards; }
+  .zoom-box { transition: transform .55s var(--ease), opacity .4s; transform: scale(.74); opacity: 0; }
+  .zoom-box.show { transform: scale(1); opacity: 1; }
+  .screen { display: none; }
+  .screen.active { display: block; animation: fadeIn .28s var(--ease); }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  video.mirror { transform: scaleX(-1); object-fit: cover; width: 100%; height: 100%; }
+  .crosshair {
+    position: absolute; inset: 12%; border: 2px solid rgba(255,30,56,.85); border-radius: 50%;
+    box-shadow: 0 0 20px rgba(255,30,56,.8); pointer-events: none; z-index: 15;
+  }
+  .crosshair::before, .crosshair::after { content: ""; position: absolute; background: rgba(255,30,56,.9); left: 50%; top: 50%; transform: translate(-50%,-50%); }
+  .crosshair::before { width: 115%; height: 2px; }
+  .crosshair::after { height: 115%; width: 2px; }
+</style>
+</head>
+<body class="flex flex-col">
+
+<!-- TOP BAR -->
+<header class="w-full max-w-6xl mx-auto px-3 pt-3 pb-2 flex items-center justify-between gap-2 flex-wrap">
+  <div class="flex items-center gap-2">
+    <span class="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500 to-red-900 flex items-center justify-center font-black shadow-lg">I</span>
+    <span class="font-black tracking-wider text-base sm:text-xl text-rose-100">IMPOSTOR <span class="text-rose-500 text-xs align-top">LIVE</span></span>
+  </div>
+  <div class="flex items-center gap-2 flex-wrap">
+    <button onclick="openShop()" class="px-3 py-1 rounded-full text-xs font-black bg-amber-500/20 border border-amber-400/60 text-amber-200 hover:bg-amber-500/30 transition" title="Sklep Kosmetyczny">
+      🪙 <span id="top-balance">0</span> pkt
+    </button>
+    <button id="btn-mute" onclick="toggleMute()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">🔊 Dźwięk</button>
+    <span id="db-status" class="px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-950/80 border border-rose-500/40 text-rose-200">⏳ Łączenie...</span>
+  </div>
+</header>
+
+<!-- TOAST & ALARM FLASH -->
+<div id="toast" class="fixed top-14 left-1/2 -translate-x-1/2 z-50 px-4 py-2.5 rounded-xl bg-rose-950/95 border border-rose-400/70 text-rose-50 text-sm font-semibold shadow-2xl hidden text-center max-w-[92vw]"></div>
+<div id="alarm-flash" class="fixed inset-0 bg-red-600 pointer-events-none z-50 opacity-0"></div>
+
+<main class="flex-1 w-full max-w-6xl mx-auto px-3 pb-8">
+
+  <!-- ==================== 1. HOME SCREEN ==================== -->
+  <section id="screen-home" class="screen active max-w-xl mx-auto mt-3">
+    <div class="card rounded-2xl p-4 sm:p-6 space-y-5">
+      <div class="text-center">
+        <h1 class="font-black tracking-tight bg-gradient-to-r from-white via-rose-200 to-rose-500 bg-clip-text text-transparent" style="font-size:clamp(1.8rem,5vw,2.6rem)">IMPOSTOR ONLINE</h1>
+        <p class="text-rose-200/80 text-xs sm:text-sm mt-1">Tryb TV + QR • Tryb Online • Kamerki • 7 ról • Boty AI • Sklep</p>
+      </div>
+
+      <!-- Auto-Join Banner when opened via QR (?room=XXXXX) -->
+      <div id="qr-join-banner" class="hidden p-3 rounded-xl bg-rose-600/25 border border-rose-400/70 text-center space-y-1">
+        <div class="text-xs uppercase tracking-widest text-rose-200 font-bold">📱 Zeskanowano kod QR pokoju</div>
+        <div class="text-lg font-black text-white">Kod: <span id="qr-join-code" class="tracking-widest text-amber-300">-----</span></div>
+        <div class="text-[11px] text-rose-200/90">Wpisz nick, włącz kamerkę lub wybierz awatar i kliknij Dołącz!</div>
+      </div>
+
+      <!-- Nickname -->
+      <div>
+        <label class="block text-xs font-bold uppercase tracking-wider text-rose-300 mb-1.5">Twój nick</label>
+        <input id="inp-nick" maxlength="16" placeholder="Wpisz swój nick..." oninput="onNickChange()" class="w-full px-3.5 py-2.5 rounded-xl bg-black/50 border border-rose-500/40 text-white placeholder-rose-300/40 focus:outline-none focus:border-rose-400">
+        <div id="sigma-hint" class="hidden mt-1.5 text-xs font-bold text-amber-300">★ Wykryto tryb SIGMA — aktywowano specjalne profilowe!</div>
+      </div>
+
+      <!-- Avatar / Camera Picker -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <span class="text-xs font-bold uppercase tracking-wider text-rose-300">Kamerka lub Awatar</span>
+          <div class="flex gap-1.5">
+            <button id="mode-cam" onclick="setMediaMode('cam')" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">📹 Kamerka</button>
+            <button id="mode-icon" onclick="setMediaMode('icon')" class="btn-red px-3 py-1 rounded-lg text-xs" style="min-height:34px">🎭 Ikona / Foto</button>
+          </div>
+        </div>
+
+        <div class="flex flex-col sm:flex-row gap-3 items-center bg-black/35 p-3 rounded-xl border border-rose-500/20">
+          <!-- Preview Box -->
+          <div id="preview-box" class="relative w-32 h-32 rounded-xl overflow-hidden bg-rose-950/60 border-2 border-rose-500/50 shrink-0 flex items-center justify-center">
+            <video id="preview-video" autoplay playsinline muted class="mirror hidden"></video>
+            <img id="preview-img" class="w-full h-full object-cover hidden" alt="Awatar">
+            <span id="preview-emoji" class="text-5xl">😈</span>
+            <div id="preview-cosmetics" class="pointer-events-none"></div>
+            <span id="preview-sigma" class="hidden absolute top-1 left-1 z-20 px-1.5 py-0.5 rounded bg-amber-400 text-black text-[10px] font-black">★ SIGMA</span>
+          </div>
+
+          <!-- Camera Device Controls -->
+          <div id="cam-controls" class="hidden flex-1 w-full space-y-2">
+            <label class="block text-[11px] font-bold text-rose-300 uppercase">Wybierz kamerkę</label>
+            <select id="cam-select" onchange="startLocalCam(this.value)" class="w-full p-2 rounded-lg bg-black/60 border border-rose-500/40 text-white text-xs"></select>
+            <button onclick="startLocalCam()" class="btn-out w-full rounded-lg text-xs py-1.5" style="min-height:36px">🔄 Odśwież kamerki</button>
+          </div>
+
+          <!-- Icon & Photo Upload Controls -->
+          <div id="icon-controls" class="flex-1 w-full space-y-2">
+            <div id="emoji-grid" class="grid grid-cols-4 gap-1.5"></div>
+            <label class="btn-out w-full rounded-lg text-xs py-1.5 flex items-center justify-center cursor-pointer" style="min-height:36px">
+              📷 Wgraj własne zdjęcie (auto 200×200)
+              <input type="file" accept="image/*" onchange="handlePhotoUpload(event)" class="hidden">
+            </label>
+          </div>
+        </div>
+
+        <button onclick="openShop()" class="btn-out w-full rounded-xl py-2 text-xs border-amber-400/50 text-amber-200">
+          🛒 Sklep Kosmetyczny / Szafa (Czapki, Okulary, Ramki)
+        </button>
+      </div>
+
+      <!-- Create / Join (2 Modes: TV+QR & Online) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pt-1">
+        <button onclick="createTvRoom()" class="btn-red rounded-xl py-3 px-4 text-sm flex flex-col items-center justify-center leading-tight">
+          <span>📺 Otwórz jako Ekran TV (QR)</span>
+          <span class="text-[10px] font-normal text-rose-100/85 mt-0.5">TV = ekran główny, telefony = kontrolery</span>
+        </button>
+        <button onclick="createRoom()" class="btn-out rounded-xl py-3 px-4 text-sm flex flex-col items-center justify-center leading-tight border-rose-400/60">
+          <span>💻 Stwórz Pokój Online</span>
+          <span class="text-[10px] font-normal text-rose-200/80 mt-0.5">Każdy gra na swoim urządzeniu</span>
+        </button>
+      </div>
+      <div class="flex gap-2">
+        <input id="inp-code" maxlength="5" placeholder="KOD" class="w-28 text-center uppercase font-black tracking-widest rounded-xl bg-black/50 border border-rose-500/40 text-white focus:outline-none focus:border-rose-400">
+        <button id="btn-join-main" onclick="joinRoom()" class="btn-out flex-1 rounded-xl px-4 py-2.5 text-sm">🚪 Dołącz do pokoju</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 2. LOBBY SCREEN ==================== -->
+  <section id="screen-lobby" class="screen space-y-4">
+    <div class="card rounded-2xl p-4 flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="text-xs uppercase tracking-wider text-rose-300">Kod pokoju</span>
+          <span id="lobby-mode-badge" class="px-2 py-0.5 rounded-full text-[10px] font-black bg-rose-600/40 border border-rose-400/60 text-rose-100">ONLINE</span>
+        </div>
+        <div class="flex items-center gap-2 flex-wrap">
+          <span id="lobby-code" class="text-2xl sm:text-4xl font-black tracking-widest text-white">-----</span>
+          <button onclick="copyRoomCode()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">📋 Kopiuj kod</button>
+          <button onclick="copyJoinLink()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">🔗 Kopiuj link</button>
+          <button id="btn-show-qr" onclick="openQrModal()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">📱 Pokaż QR</button>
+        </div>
+      </div>
+      <div class="flex gap-2 flex-wrap">
+        <button id="btn-lobby-shop" onclick="openShop()" class="btn-out px-3.5 py-2 rounded-xl text-xs border-amber-400/50 text-amber-200">🛒 Sklep</button>
+        <button id="btn-add-bot" onclick="addBot()" class="btn-out px-3.5 py-2 rounded-xl text-xs hidden">🤖 + Dodaj bota</button>
+        <button id="btn-start-game" onclick="startGame()" class="btn-red px-5 py-2 rounded-xl text-sm hidden">🚀 Rozpocznij grę</button>
+        <button onclick="leaveRoom()" class="btn-out px-3.5 py-2 rounded-xl text-xs">🚪 Wyjdź</button>
+      </div>
+    </div>
+
+    <!-- Big TV QR Banner (visible only on TV Host) -->
+    <div id="tv-qr-panel" class="hidden card rounded-2xl p-5 border-rose-400/60">
+      <div class="flex flex-col md:flex-row items-center gap-6">
+        <div id="tv-qr-code" class="qr-box shrink-0"></div>
+        <div class="text-center md:text-left space-y-2 flex-1">
+          <div class="inline-block px-3 py-1 rounded-full bg-rose-600/30 border border-rose-400/60 text-xs font-black tracking-wider text-rose-200">📺 TRYB TELEWIZORA (EKRAN GŁÓWNY)</div>
+          <h2 class="text-xl sm:text-3xl font-black text-white">Zeskanuj telefonem, aby dołączyć!</h2>
+          <p class="text-xs sm:text-sm text-rose-200/85 max-w-lg">Każdy gracz skanuje kod QR, włącza przednią kamerkę i widzi swoją rolę oraz hasło wyłącznie na swoim telefonie.</p>
+          <div class="flex flex-wrap items-center justify-center md:justify-start gap-2 pt-1">
+            <span class="px-3 py-1.5 rounded-xl bg-black/50 border border-rose-500/40 text-sm">Kod: <b id="tv-qr-text-code" class="text-amber-300 text-xl tracking-widest">-----</b></span>
+            <button onclick="copyJoinLink()" class="btn-out px-3.5 py-1.5 rounded-xl text-xs" style="min-height:38px">🔗 Kopiuj link do pokoju</button>
+          </div>
+          <div id="tv-qr-file-warn" class="hidden text-xs text-amber-300 bg-amber-950/50 border border-amber-500/40 rounded-lg p-2">
+            ⚠️ Strona otwarta lokalnie (<code>file://</code>). Aby skanować kod QR telefonem, wrzuć plik jako <code>index.html</code> na GitHub Pages.
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div class="lg:col-span-2 card rounded-2xl p-4 space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="font-bold text-rose-100">Gracze w pokoju (<span id="lobby-count">0</span>/10)</h2>
+          <span class="text-xs text-rose-300/80">Min. 3 graczy</span>
+        </div>
+        <div id="lobby-players" class="stage-grid"></div>
+      </div>
+
+      <div id="host-settings" class="card rounded-2xl p-4 space-y-3 text-xs">
+        <h2 class="font-bold text-sm text-rose-100">⚙️ Ustawienia rozgrywki</h2>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="space-y-1">
+            <span class="text-rose-300">Impostorzy</span>
+            <select id="cfg-impostors" onchange="saveSettings()" class="w-full p-2 rounded-lg bg-black/60 border border-rose-500/40 text-white">
+              <option value="1">1 Impostor</option>
+              <option value="2">2 Impostorów</option>
+              <option value="3">3 Impostorów</option>
+            </select>
+          </label>
+          <label class="space-y-1">
+            <span class="text-rose-300">Liczba rund</span>
+            <select id="cfg-rounds" onchange="saveSettings()" class="w-full p-2 rounded-lg bg-black/60 border border-rose-500/40 text-white">
+              <option value="3">3 rundy</option>
+              <option value="5" selected>5 rund</option>
+              <option value="7">7 rund</option>
+              <option value="10">10 rund</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="space-y-1.5 pt-1 border-t border-rose-500/20">
+          <label class="flex items-center justify-between gap-2 cursor-pointer"><span>🌑 Tryb „W ciemno” (wszyscy naraz 15s)</span><input id="cfg-blind" type="checkbox" onchange="saveSettings()" class="accent-rose-500 w-4 h-4"></label>
+          <label class="flex items-center justify-between gap-2 cursor-pointer"><span>⚡ Losowe mutatory rundy</span><input id="cfg-mutators" type="checkbox" onchange="saveSettings()" class="accent-rose-500 w-4 h-4"></label>
+          <label class="flex items-center justify-between gap-2 cursor-pointer"><span>📹 Filtr CCTV na kamerkach</span><input id="cfg-cctv" type="checkbox" onchange="saveSettings()" class="accent-rose-500 w-4 h-4" checked></label>
+        </div>
+
+        <div class="space-y-1.5 pt-2 border-t border-rose-500/20">
+          <div class="font-bold text-rose-200">🎭 Role specjalne (wybierz):</div>
+          <div id="roles-toggles" class="grid grid-cols-1 gap-1.5"></div>
+        </div>
+
+        <div class="space-y-1 pt-2 border-t border-rose-500/20">
+          <span class="text-rose-300">Własne hasła (<code class="text-rose-200">hasło:podpowiedź</code> w linii)</span>
+          <textarea id="cfg-words" rows="2" onchange="saveSettings()" placeholder="Pizza:Włochy&#10;Wiedźmin:Potwory" class="w-full p-2 rounded-lg bg-black/60 border border-rose-500/40 text-white text-xs"></textarea>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 3A. GAME SCREEN (ONLINE & TV HOST) ==================== -->
+  <section id="screen-game" class="screen space-y-3">
+    <!-- Top HUD -->
+    <div class="card rounded-2xl p-3 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex flex-wrap items-center gap-2 text-xs font-bold">
+        <span id="hud-round" class="px-2.5 py-1 rounded-lg bg-rose-950/90 border border-rose-500/40 text-rose-100">Runda 1/5</span>
+        <span id="hud-cycle" class="px-2.5 py-1 rounded-lg bg-rose-950/90 border border-rose-500/40 text-rose-200">Kolejka 1</span>
+        <span id="hud-chances" class="px-2.5 py-1 rounded-lg bg-red-900/60 border border-red-400/50 text-amber-200">Szanse: 1/1</span>
+        <span id="hud-mutator" class="hidden px-2.5 py-1 rounded-lg bg-amber-500/20 border border-amber-400/60 text-amber-200">⚡ MUTATOR</span>
+        <span id="hud-timer" class="hidden px-2.5 py-1 rounded-lg bg-red-600 text-white font-black">30s</span>
+      </div>
+      <div class="flex items-center gap-2 flex-wrap">
+        <button id="btn-my-card" onclick="toggleSecretBanner()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">👁️ Moja karta</button>
+        <button id="btn-blind-shot" onclick="openBlindShot()" class="btn-red px-3 py-1 rounded-lg text-xs hidden" style="min-height:34px">🎯 Strzał w ciemno</button>
+        <button onclick="leaveRoom()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">🚪 Wyjdź</button>
+      </div>
+    </div>
+
+    <!-- Secret Role Banner (hidden in TV Host mode) -->
+    <div id="secret-banner" class="card rounded-xl px-4 py-2.5 border-rose-400/60 flex items-center justify-between gap-2 text-sm">
+      <div id="secret-banner-text" class="flex-1"></div>
+      <button onclick="toggleSecretBanner()" class="text-xs text-rose-300 hover:text-white underline shrink-0">Ukryj</button>
+    </div>
+
+    <!-- Phase Action Bar -->
+    <div id="phase-bar" class="card rounded-2xl p-3.5 space-y-2"></div>
+
+    <!-- Players Cameras / Avatars Grid -->
+    <div id="game-stage" class="stage-grid"></div>
+
+    <!-- Online Reactions & Soundboard Bar (hidden on TV Host) -->
+    <div id="online-interact-bar" class="card rounded-2xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-1.5">
+        <span class="text-[11px] font-bold uppercase text-rose-300 mr-1">Reakcje:</span>
+        <button onclick="sendReaction('🚨')" class="btn-out px-2.5 py-1 rounded-lg text-base" style="min-height:36px">🚨</button>
+        <button onclick="sendReaction('🤡')" class="btn-out px-2.5 py-1 rounded-lg text-base" style="min-height:36px">🤡</button>
+        <button onclick="sendReaction('👀')" class="btn-out px-2.5 py-1 rounded-lg text-base" style="min-height:36px">👀</button>
+        <button onclick="sendReaction('💀')" class="btn-out px-2.5 py-1 rounded-lg text-base" style="min-height:36px">💀</button>
+      </div>
+      <div id="soundboard-bar" class="hidden flex items-center gap-1.5 flex-wrap">
+        <span class="text-[11px] font-bold uppercase text-rose-300 mr-1">Soundboard:</span>
+        <button onclick="sendSfx('siren')" class="btn-out px-2.5 py-1 rounded-lg text-xs" style="min-height:34px">🚨 Syrena</button>
+        <button onclick="sendSfx('boom')" class="btn-out px-2.5 py-1 rounded-lg text-xs" style="min-height:34px">💥 Boom</button>
+        <button onclick="sendSfx('crickets')" class="btn-out px-2.5 py-1 rounded-lg text-xs" style="min-height:34px">🦗 Cisza</button>
+        <button onclick="sendSfx('clap')" class="btn-out px-2.5 py-1 rounded-lg text-xs" style="min-height:34px">👏 Brawa</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 3B. PHONE CONTROLLER SCREEN (TV MODE) ==================== -->
+  <section id="screen-controller" class="screen max-w-md mx-auto space-y-3">
+    <div class="card rounded-2xl p-3 flex items-center justify-between gap-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div id="ctrl-self-box" class="relative w-14 h-14 rounded-xl overflow-hidden bg-rose-950/70 border border-rose-500/50 shrink-0 flex items-center justify-center">
+          <video id="ctrl-self-video" autoplay playsinline muted class="mirror hidden"></video>
+          <img id="ctrl-self-img" class="w-full h-full object-cover hidden" alt="Ty">
+          <span id="ctrl-self-emoji" class="text-2xl">😈</span>
+          <div id="ctrl-self-cosmetics" class="pointer-events-none"></div>
+        </div>
+        <div class="min-w-0">
+          <div id="ctrl-nick" class="font-black text-sm text-white truncate">Gracz</div>
+          <div id="ctrl-hud" class="text-[11px] text-rose-300 font-semibold">📺 Połączono z TV</div>
+          <div id="ctrl-score" class="text-[11px] text-amber-300 font-bold">0 pkt w meczu</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-1.5 shrink-0">
+        <button onclick="openShop()" class="btn-out px-2.5 py-1.5 rounded-lg text-xs border-amber-400/50 text-amber-200" style="min-height:36px">🛒</button>
+        <button onclick="leaveRoom()" class="btn-out px-2.5 py-1.5 rounded-lg text-xs" style="min-height:36px">🚪</button>
+      </div>
+    </div>
+
+    <!-- Secret Role Tap-to-Peek Card -->
+    <div id="ctrl-secret-wrap" class="hidden card rounded-2xl p-3.5 border-rose-400/60 space-y-2 text-center">
+      <button id="ctrl-peek-btn" onclick="toggleCtrlPeek()" class="btn-red w-full rounded-xl py-3 px-4 text-sm">
+        👁️ Kliknij, aby podejrzeć swoją rolę i hasło
+      </button>
+      <div id="ctrl-secret-content" class="hidden p-3 rounded-xl bg-black/60 border border-rose-500/40 text-sm space-y-1"></div>
+    </div>
+
+    <!-- Main Controller Action Area -->
+    <div id="ctrl-main" class="card rounded-2xl p-4 space-y-3"></div>
+
+    <!-- Live Reactions & Soundboard sent directly to TV -->
+    <div class="card rounded-2xl p-3 space-y-2">
+      <div class="flex items-center justify-between gap-1.5">
+        <span class="text-[11px] font-bold uppercase text-rose-300">Reakcje na TV:</span>
+        <div class="flex gap-1.5">
+          <button onclick="sendReaction('🚨')" class="btn-out px-2.5 py-1 rounded-lg text-lg" style="min-height:38px">🚨</button>
+          <button onclick="sendReaction('🤡')" class="btn-out px-2.5 py-1 rounded-lg text-lg" style="min-height:38px">🤡</button>
+          <button onclick="sendReaction('👀')" class="btn-out px-2.5 py-1 rounded-lg text-lg" style="min-height:38px">👀</button>
+          <button onclick="sendReaction('💀')" class="btn-out px-2.5 py-1 rounded-lg text-lg" style="min-height:38px">💀</button>
+        </div>
+      </div>
+      <div class="grid grid-cols-4 gap-1.5">
+        <button onclick="sendSfx('siren')" class="btn-out rounded-lg text-[11px] py-1.5" style="min-height:34px">🚨 Syrena</button>
+        <button onclick="sendSfx('boom')" class="btn-out rounded-lg text-[11px] py-1.5" style="min-height:34px">💥 Boom</button>
+        <button onclick="sendSfx('crickets')" class="btn-out rounded-lg text-[11px] py-1.5" style="min-height:34px">🦗 Cisza</button>
+        <button onclick="sendSfx('clap')" class="btn-out rounded-lg text-[11px] py-1.5" style="min-height:34px">👏 Brawa</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== 4. SUMMARY / PODIUM SCREEN ==================== -->
+  <section id="screen-summary" class="screen max-w-2xl mx-auto space-y-4">
+    <div class="card rounded-2xl p-5 text-center space-y-4">
+      <h2 id="sum-title" class="text-2xl sm:text-3xl font-black text-white">Koniec rundy</h2>
+      <p id="sum-desc" class="text-rose-200 text-sm"></p>
+      <div id="sum-word" class="inline-block px-4 py-2 rounded-xl bg-black/50 border border-rose-500/40 text-sm font-bold"></div>
+      <div id="sum-titles" class="hidden grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2"></div>
+      <div id="sum-board" class="space-y-2 text-left pt-2"></div>
+      <div class="pt-2 flex justify-center gap-2 flex-wrap">
+        <button id="btn-next-round" onclick="hostNextRound()" class="btn-red px-6 py-2.5 rounded-xl text-sm hidden">▶ Następna runda</button>
+        <button id="btn-back-lobby" onclick="hostBackToLobby()" class="btn-out px-5 py-2.5 rounded-xl text-sm hidden">🔁 Powrót do lobby</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- FULLSCREEN CINEMATIC OVERLAY -->
+<div id="overlay" class="fixed inset-0 z-40 bg-black/88 backdrop-blur-md hidden items-center justify-center p-4">
+  <div id="overlay-box" class="zoom-box card rounded-3xl p-6 max-w-md w-full text-center space-y-4 border-rose-500/70"></div>
+</div>
+
+<!-- BLIND SHOT MODAL -->
+<div id="shot-modal" class="fixed inset-0 z-40 bg-black/80 hidden items-center justify-center p-4">
+  <div class="card rounded-2xl p-5 max-w-sm w-full space-y-3 text-center">
+    <h3 class="text-lg font-black text-rose-100">🎯 STRZAŁ W CIEMNO</h3>
+    <p class="text-xs text-rose-200/80">Trafisz Impostora = +3 pkt i natychmiastowe złapanie! Chybisz = odpadasz z rundy i -1 pkt.</p>
+    <div id="shot-targets" class="space-y-1.5"></div>
+    <button onclick="closeBlindShot()" class="btn-out w-full rounded-xl text-xs">Anuluj</button>
+  </div>
+</div>
+
+<!-- ONLINE MODE QR MODAL -->
+<div id="qr-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-4">
+  <div class="card rounded-2xl p-5 max-w-sm w-full text-center space-y-3">
+    <div class="flex items-center justify-between">
+      <h3 class="text-base font-black text-white">📱 Dołącz z telefonu (QR)</h3>
+      <button onclick="closeQrModal()" class="btn-out px-2.5 py-1 rounded-lg text-xs" style="min-height:32px">✕</button>
+    </div>
+    <div id="modal-qr-code" class="qr-box mx-auto"></div>
+    <div class="text-sm text-rose-200">Kod pokoju: <b id="modal-qr-text" class="text-amber-300 tracking-widest text-2xl">-----</b></div>
+    <button onclick="copyJoinLink()" class="btn-red w-full rounded-xl py-2 text-xs">🔗 Kopiuj link do pokoju</button>
+    <div id="modal-qr-file-warn" class="hidden text-[11px] text-amber-300 bg-amber-950/50 border border-amber-500/40 rounded-lg p-2">
+      ⚠️ Plik otwarty lokalnie (<code>file://</code>). Do skanowania telefonem wrzuć stronę jako <code>index.html</code> na GitHub Pages.
+    </div>
+  </div>
+</div>
+
+<!-- COSMETIC SHOP MODAL -->
+<div id="shop-modal" class="fixed inset-0 z-50 bg-black/85 backdrop-blur-md hidden items-center justify-center p-3">
+  <div class="card rounded-2xl p-4 sm:p-5 max-w-2xl w-full max-h-[90dvh] flex flex-col gap-3">
+    <div class="flex items-center justify-between gap-2 border-b border-rose-500/25 pb-2.5">
+      <div>
+        <h3 class="text-lg sm:text-xl font-black text-white">🛒 SKLEP KOSMETYCZNY & SZAFA</h3>
+        <p class="text-xs text-rose-300/80">Kupuj czapki, okulary i ramki za punkty zdobyte w grze!</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <span class="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-400/60 text-amber-200 text-xs font-black">🪙 <span class="sync-bal">0</span> pkt</span>
+        <button onclick="closeShop()" class="btn-out px-3 py-1 rounded-lg text-xs" style="min-height:34px">✕</button>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-3 overflow-y-auto pr-1">
+      <div class="bg-black/40 rounded-xl p-3 border border-rose-500/25 flex flex-col items-center justify-center gap-2.5">
+        <div class="text-xs font-bold text-rose-300 uppercase">Podgląd na żywo</div>
+        <div id="shop-preview-tile" class="relative w-40 h-32 rounded-xl overflow-hidden bg-rose-950/70 border-2 border-rose-500/40 flex items-center justify-center">
+          <video id="shop-video" autoplay playsinline muted class="mirror hidden"></video>
+          <img id="shop-img" class="w-full h-full object-cover hidden" alt="Podgląd">
+          <span id="shop-emoji" class="text-5xl">😈</span>
+          <div id="shop-cosmetics" class="pointer-events-none"></div>
+        </div>
+        <div id="shop-equipped-list" class="text-[11px] text-rose-200/80 text-center"></div>
+      </div>
+
+      <div class="md:col-span-2 flex flex-col gap-2.5">
+        <div class="grid grid-cols-3 gap-1.5">
+          <button id="tab-hat" onclick="setShopTab('hat')" class="btn-red rounded-lg text-xs py-1.5" style="min-height:36px">🎩 Czapki</button>
+          <button id="tab-glasses" onclick="setShopTab('glasses')" class="btn-out rounded-lg text-xs py-1.5" style="min-height:36px">🕶️ Okulary</button>
+          <button id="tab-frame" onclick="setShopTab('frame')" class="btn-out rounded-lg text-xs py-1.5" style="min-height:36px">✨ Ramki</button>
+        </div>
+        <div id="shop-items" class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[46dvh] overflow-y-auto pr-1"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===================== 1. CONSTANTS, WORDS & COSMETICS ===================== */
+const DB_URL = "https://chaosarena-75404-default-rtdb.firebaseio.com/";
+const EMOJIS = ["😈","🦊","👽","💀","🤡","🐺","🤖","🥷"];
+const ROLES_META = {
+  blazen:     { name: "🤡 Błazen", desc: "Wygrywa +4 pkt, jeśli zostanie wygłosowany" },
+  podrobka:   { name: "🎭 Podróbka", desc: "Dostaje inne słowo z kategorii, myśli że jest Załogantem" },
+  podsluch:   { name: "📡 Podsłuch", desc: "Widzi hasło ORAZ podpowiedź Impostora" },
+  szef:       { name: "👑 Szef", desc: "Jego głos w głosowaniu liczy się x2" },
+  ochroniarz: { name: "🛡️ Ochroniarz", desc: "Może osłonić 1 gracza w głosowaniu" },
+  kret:       { name: "🕵️ Kret", desc: "Zna hasło i widzi, kto jest Impostorem" },
+  cenzor:     { name: "📺 Cenzor", desc: "Raz na rundę zamazuje odpowiedź jako [ZAKŁÓCENIE]" }
+};
+const MUTATORS = [
+  { id: "blitz", label: "⚡ BLITZ: 8s na odpowiedź!" },
+  { id: "oneword", label: "☝️ TYLKO 1 SŁOWO!" },
+  { id: "no_a", label: "🚫 ZAKAZ LITERY 'A'!" }
+];
+
+// 24 Polish words with category/hint, decoy for Podróbka, subtle crew clues & general impostor clues
+const WORDS_DB = [
+  { w:"Pizza", d:"Kebab", h:"Kuchnia świata", c:["trójkątny kawałek","ciągnący ser","pudełko kartonowe","piec opałowy","wieczór z ekipą"], i:["ciepły posiłek","popularne danie","zamawiane wieczorem","różne dodatki","fast food"] },
+  { w:"Wiedźmin", d:"Władca Pierścieni", h:"Fantasy", c:["dwa miecze","srebrny medalion","eliksiry bojowe","biały wilk","zlecenia na potwory"], i:["magia i miecze","znana seria","mroczny świat","bohater z blizną","przygoda"] },
+  { w:"Szkoła", d:"Uczelnia", h:"Edukacja", c:["długi korytarz","dzwonek co 45 minut","kartkówka z zaskoczenia","szatnia na dole","tablica kredowa"], i:["budynek publiczny","dużo ludzi","poranne wstawanie","nauka i stres","zeszyty"] },
+  { w:"Kino", d:"Teatr", h:"Rozrywka", c:["wielki ekran","zapach popcornu","ciemna sala","zwiastuny przed startem","wygodne fotele"], i:["bilety przy wejściu","wieczorne wyjście","siedzenie w rzędach","głośny dźwięk","emocje"] },
+  { w:"Plaża", d:"Basen", h:"Wakacje", c:["gorący piasek","szum fal","parawan na wietrze","zachód słońca","słona woda"], i:["letni klimat","słońce i relaks","ręcznik i okulary","dużo ludzi latem","wypoczynek"] },
+  { w:"Minecraft", d:"Roblox", h:"Gry wideo", c:["sześcienny świat","kopanie w dół","zielony wybuch","nocne potwory","drewniany kilof"], i:["granie ze znajomymi","budowanie rzeczy","popularna gra","różne tryby","kreatywność"] },
+  { w:"Kawa", d:"Herbata", h:"Napój", c:["poranny zastrzyk","ciemne ziarna","ekspres ciśnieniowy","gorzki aromat","spienione mleko"], i:["ciepły kubek","pije się rano","w kawiarni","dodaje energii","codzienny nawyk"] },
+  { w:"Samolot", d:"Pociąg", h:"Transport", c:["pas startowy","kontrola bagażu","widok ponad chmurami","pasy bezpieczeństwa","długa podróż"], i:["szybki środek","podróż daleko","bilet i miejsce","hałas silnika","wakacyjny wyjazd"] },
+  { w:"Szpital", d:"Apteka", h:"Zdrowie", c:["białe korytarze","nocny dyżur","karetka na sygnale","sala zabiegowa","zapach środka"], i:["pomoc medyczna","stresujące miejsce","specjaliści w bieli","kolejki ludzi","ważna placówka"] },
+  { w:"Komputer", d:"Smartfon", h:"Technologia", c:["klawiatura mechaniczna","chłodzenie wiatrakami","duży monitor","kable pod biurkiem","myszka z podkładką"], i:["ekran świecący","internet i gry","codzienne narzędzie","ładowanie prądem","elektronika"] },
+  { w:"Las", d:"Park", h:"Natura", c:["wysokie sosny","zapach mchu","grzybobranie jesienią","leśna ścieżka","śpiew ptaków"], i:["zielone otoczenie","świeże powietrze","spacer w ciszy","drzewa dookoła","przyroda"] },
+  { w:"Piłka nożna", d:"Koszykówka", h:"Sport", c:["zielona murawa","rzut karny","spalony przy linii","dwie połowy","kibice na trybunach"], i:["gra zespołowa","emocje na żywo","trening i kondycja","sędzia z gwizdkiem","rywalizacja"] },
+  { w:"Zima", d:"Jesień", h:"Pora roku", c:["skrobanie szyb","śliski chodnik","gruby szalik","krótkie dni","biały puch"], i:["chłodna pogoda","ciepła kurtka","zmiana klimatu","szybki zmrok","herbata w domu"] },
+  { w:"Pies", d:"Kot", h:"Zwierzę domowe", c:["poranny spacer","merdający ogon","aportowanie piłki","smycz w przedpokoju","głośne szczekanie"], i:["wierny towarzysz","futro na kanapie","miska w kuchni","opiekun w domu","zwierzak"] },
+  { w:"Siłownia", d:"Stadion", h:"Aktywność", c:["ciężkie hantle","zapach magnezji","lustra na ścianie","bieżnia elektryczna","zakwasy nazajutrz"], i:["wysiłek fizyczny","pot i muzyka","regularny trening","sportowy strój","forma"] },
+  { w:"Wampir", d:"Zombie", h:"Horror", c:["unikanie słońca","ostre kły","stary zamek","czosnek jako broń","brak odbicia"], i:["mroczna postać","straszne filmy","nocna aktywność","legenda ludowa","dreszcz emocji"] },
+  { w:"Pustynia", d:"Dżungla", h:"Krajobraz", c:["wielkie wydmy","fatamorgana w oddali","palące słońce","brak deszczu","oaza z palmami"], i:["ekstremalne warunki","daleka wyprawa","dzika natura","trudne przetrwanie","gorący klimat"] },
+  { w:"Pieniądze", d:"Złoto", h:"Wartość", c:["wypłata z bankomatu","portfel w kieszeni","papierowy szelest","reszta w sklepie","konto w banku"], i:["każdy tego chce","codzienne zakupy","cenna rzecz","oszczędzanie","bogactwo"] },
+  { w:"Koncert", d:"Festiwal", h:"Muzyka", c:["głośne basy","bilet przy bramce","światła ze sceny","tłum pod barierką","bis na koniec"], i:["głośna impreza","znany artysta","wieczór ze znajomymi","energia tłumu","muzyka na żywo"] },
+  { w:"Lodówka", d:"Mikrofalówka", h:"AGD", c:["światło po otwarciu","zimne napoje","magnesy na drzwiach","puste półki nocą","ciche buczenie"], i:["stoi w kuchni","działa na prąd","związane z jedzeniem","codzienny sprzęt","biała obudowa"] },
+  { w:"YouTube", d:"TikTok", h:"Internet", c:["czerwony przycisk","subskrypcja z dzwonkiem","długie filmy","miniaturki z tekstem","komentarze pod spodem"], i:["oglądanie codziennie","twórcy online","algorytm poleceń","reklamy przed startem","popularna apka"] },
+  { w:"Rower", d:"Hulajnoga", h:"Pojazd", c:["dwa koła","łańcuch i pedały","dzwonek na kierownicy","ścieżka asfaltowa","pompowanie opon"], i:["jazda po mieście","ekologiczny ruch","wiatr we włosach","sport na dworze","szybki dojazd"] },
+  { w:"Kosmos", d:"Ocean", h:"Nieznane", c:["brak grawitacji","miliony gwiazd","skafander z hełmem","czarna pustka","odległe planety"], i:["wielka tajemnica","ogromna przestrzeń","trudne badania","ekspedycja naukowa","cisza wokół"] },
+  { w:"Burger", d:"Hot-dog", h:"Fast food", c:["miękka bułka","kotlet z grilla","plaster sera","sosy i sałata","frytki obok"], i:["szybkie jedzenie","na ciepło","bar przy drodze","sycący posiłek","amerykański styl"] }
+];
+const BOT_NAMES = ["Kuba_AI","Maja_AI","Oskar_AI","Zuzia_AI","Bartek_AI","Ala_AI","Filip_AI","Lena_AI","Tomek_AI"];
+
+const COSMETICS = [
+  // HATS
+  { id:"hat_santa", cat:"hat", name:"Czapka Mikołaja", price:3, svg:`<svg viewBox="0 0 120 65" class="cos-hat"><path d="M22 46 Q45 4 98 22 Q78 26 95 46 Z" fill="#dc2626" stroke="#7f1d1d" stroke-width="2.5"/><circle cx="100" cy="22" r="8" fill="#ffffff"/><rect x="16" y="40" width="84" height="14" rx="7" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/></svg>` },
+  { id:"hat_ushanka", cat:"hat", name:"Uszanka Sigma", price:5, svg:`<svg viewBox="0 0 120 74" class="cos-hat"><path d="M20 40 C20 12, 100 12, 100 40 Z" fill="#78350f" stroke="#451a03" stroke-width="3"/><rect x="14" y="32" width="18" height="36" rx="8" fill="#d6b47c" stroke="#78350f" stroke-width="2"/><rect x="88" y="32" width="18" height="36" rx="8" fill="#d6b47c" stroke="#78350f" stroke-width="2"/><rect x="26" y="24" width="68" height="22" rx="6" fill="#e7c894" stroke="#78350f" stroke-width="2"/><polygon points="60,28 63,36 71,36 64,40 67,47 60,43 53,47 56,40 49,36 57,36" fill="#dc2626"/></svg>` },
+  { id:"hat_horns", cat:"hat", name:"Diabelskie Rogi", price:7, svg:`<svg viewBox="0 0 120 60" class="cos-hat"><path d="M28 52 Q10 28 24 8 Q32 26 44 46 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="2.5"/><path d="M92 52 Q110 28 96 8 Q88 26 76 46 Z" fill="#ef4444" stroke="#7f1d1d" stroke-width="2.5"/></svg>` },
+  { id:"hat_crown", cat:"hat", name:"Korona Króla", price:12, svg:`<svg viewBox="0 0 120 60" class="cos-hat"><path d="M18 50 L12 18 L40 34 L60 10 L80 34 L108 18 L102 50 Z" fill="#fbbf24" stroke="#92400e" stroke-width="3"/><circle cx="60" cy="36" r="5" fill="#ef4444"/><circle cx="34" cy="40" r="4" fill="#38bdf8"/><circle cx="86" cy="40" r="4" fill="#38bdf8"/></svg>` },
+  // GLASSES
+  { id:"gl_mlg", cat:"glasses", name:"Okulary Pixel MLG", price:3, svg:`<svg viewBox="0 0 120 40" class="cos-glasses"><rect x="6" y="10" width="108" height="8" fill="#000"/><rect x="14" y="16" width="38" height="16" fill="#000"/><rect x="68" y="16" width="38" height="16" fill="#000"/><rect x="20" y="18" width="8" height="5" fill="#fff"/><rect x="30" y="23" width="6" height="5" fill="#fff"/><rect x="74" y="18" width="8" height="5" fill="#fff"/><rect x="84" y="23" width="6" height="5" fill="#fff"/></svg>` },
+  { id:"gl_neon", cat:"glasses", name:"Czerwone Neonowe", price:5, svg:`<svg viewBox="0 0 120 42" class="cos-glasses"><rect x="10" y="10" width="42" height="22" rx="6" fill="rgba(255,30,56,.45)" stroke="#ff1e38" stroke-width="4"/><rect x="68" y="10" width="42" height="22" rx="6" fill="rgba(255,30,56,.45)" stroke="#ff1e38" stroke-width="4"/><line x1="52" y1="18" x2="68" y2="18" stroke="#ff4766" stroke-width="4"/></svg>` },
+  { id:"gl_cyber", cat:"glasses", name:"Wizjer Cyber", price:9, svg:`<svg viewBox="0 0 120 42" class="cos-glasses"><path d="M8 12 L112 12 L104 32 L68 28 L60 24 L52 28 L16 32 Z" fill="rgba(34,211,238,.55)" stroke="#67e8f9" stroke-width="3"/><line x1="18" y1="20" x2="102" y2="20" stroke="#ffffff" stroke-width="2" opacity=".8"/></svg>` },
+  // FRAMES
+  { id:"fr_gold", cat:"frame", name:"Złota Ramka VIP", price:6, previewClass:"frame-fr_gold" },
+  { id:"fr_fire", cat:"frame", name:"Płomienny Neon", price:8, previewClass:"frame-fr_fire" },
+  { id:"fr_glitch", cat:"frame", name:"Glitch Matrix", price:10, previewClass:"frame-fr_glitch" }
+];
+const COS_MAP = Object.fromEntries(COSMETICS.map(c => [c.id, c]));
+
+/* ===================== 2. ACCOUNT & SHOP (localStorage) ===================== */
+const ACC_KEY = "impostor_account_v1";
+let account = { balance: 0, owned: [], equipped: { hat: null, glasses: null, frame: null } };
+let currentShopTab = "hat";
+
+function loadAccount() {
+  try {
+    const raw = localStorage.getItem(ACC_KEY);
+    if (raw) {
+      const p = JSON.parse(raw);
+      account = {
+        balance: Number(p.balance) || 0,
+        owned: Array.isArray(p.owned) ? p.owned : [],
+        equipped: { hat: p.equipped?.hat || null, glasses: p.equipped?.glasses || null, frame: p.equipped?.frame || null }
+      };
+    }
+  } catch (e) {}
+  updateBalanceUI();
+}
+function saveAccount() {
+  try { localStorage.setItem(ACC_KEY, JSON.stringify(account)); } catch (e) {}
+  updateBalanceUI();
+  updatePreview();
+  if (roomRef && roomData?.players?.[myId]) {
+    roomRef.child(`players/${myId}/cosmetics`).set(account.equipped);
+  }
+}
+function updateBalanceUI() {
+  const b = account.balance;
+  const tb = document.getElementById("top-balance");
+  if (tb) tb.textContent = b;
+  document.querySelectorAll(".sync-bal").forEach(el => el.textContent = b);
+}
+function renderCosmeticsOverlays(cos) {
+  if (!cos) return "";
+  return (cos.hat && COS_MAP[cos.hat]?.svg ? COS_MAP[cos.hat].svg : "") +
+         (cos.glasses && COS_MAP[cos.glasses]?.svg ? COS_MAP[cos.glasses].svg : "");
+}
+function getFrameClass(cos) { return (cos && cos.frame && COS_MAP[cos.frame]) ? `frame-${cos.frame}` : ""; }
+
+function openShop() {
+  document.getElementById("shop-modal").classList.remove("hidden");
+  document.getElementById("shop-modal").classList.add("flex");
+  renderShop();
+}
+function closeShop() {
+  document.getElementById("shop-modal").classList.add("hidden");
+  document.getElementById("shop-modal").classList.remove("flex");
+}
+function setShopTab(tab) {
+  currentShopTab = tab;
+  ["hat","glasses","frame"].forEach(t => {
+    document.getElementById("tab-" + t).className = (t === tab ? "btn-red" : "btn-out") + " rounded-lg text-xs py-1.5";
+  });
+  renderShop();
+}
+function buyOrEquip(id) {
+  const item = COS_MAP[id]; if (!item) return;
+  if (!account.owned.includes(id)) {
+    if (account.balance < item.price) return toast(`Brakuje Ci ${item.price - account.balance} pkt!`);
+    account.balance -= item.price;
+    account.owned.push(id);
+    account.equipped[item.cat] = id;
+    toast(`🎉 Kupiono i założono: ${item.name}!`);
+  } else {
+    account.equipped[item.cat] = (account.equipped[item.cat] === id) ? null : id;
+    toast(account.equipped[item.cat] ? `✨ Założono: ${item.name}` : `Zdjęto: ${item.name}`);
+  }
+  saveAccount();
+  renderShop();
+}
+function renderShop() {
+  updateBalanceUI();
+  const box = document.getElementById("shop-preview-tile");
+  box.className = "relative w-40 h-32 rounded-xl overflow-hidden bg-rose-950/70 border-2 border-rose-500/40 flex items-center justify-center " + getFrameClass(account.equipped);
+  const sig = getSigmaInfo(document.getElementById("inp-nick").value);
+  const sv = document.getElementById("shop-video"), si = document.getElementById("shop-img"), se = document.getElementById("shop-emoji");
+  sv.classList.add("hidden"); si.classList.add("hidden"); se.classList.add("hidden");
+  if (sig) { si.src = sig.img; si.classList.remove("hidden"); }
+  else if (mediaMode === "cam" && localStream) { sv.srcObject = localStream; sv.classList.remove("hidden"); }
+  else if (customPhotoData) { si.src = customPhotoData; si.classList.remove("hidden"); }
+  else { se.textContent = selectedEmoji; se.classList.remove("hidden"); }
+  document.getElementById("shop-cosmetics").innerHTML = renderCosmeticsOverlays(account.equipped);
+
+  const eqNames = ["hat","glasses","frame"].map(k => account.equipped[k] ? COS_MAP[account.equipped[k]]?.name : null).filter(Boolean);
+  document.getElementById("shop-equipped-list").textContent = eqNames.length ? ("Założone: " + eqNames.join(" • ")) : "Brak założonych dodatków";
+
+  document.getElementById("shop-items").innerHTML = COSMETICS.filter(c => c.cat === currentShopTab).map(it => {
+    const owned = account.owned.includes(it.id), eq = account.equipped[it.cat] === it.id, canBuy = account.balance >= it.price;
+    const btnCls = eq ? "btn-out border-emerald-400 text-emerald-300" : (owned ? "btn-out" : (canBuy ? "btn-red" : "btn-out opacity-50"));
+    const btnTxt = eq ? "✓ Założone (Zdejmij)" : (owned ? "Załóż" : `Kup za 🪙 ${it.price}`);
+    return `<div class="bg-black/45 rounded-xl p-2.5 border border-rose-500/25 flex flex-col justify-between gap-2">
+      <div class="flex items-center justify-between gap-2">
+        <span class="font-bold text-xs text-rose-100">${it.name}</span>
+        ${it.cat === "frame" ? `<span class="w-6 h-6 rounded ${it.previewClass} shrink-0"></span>` : `<span class="text-xs text-amber-300 font-bold">${owned ? "Posiadasz" : `🪙 ${it.price}`}</span>`}
+      </div>
+      <button onclick="buyOrEquip('${it.id}')" class="${btnCls} w-full rounded-lg text-xs py-1" style="min-height:34px">${btnTxt}</button>
+    </div>`;
+  }).join("");
+}
+
+/* ===================== 3. STATE, TIMERS & FIREBASE INIT ===================== */
+let db = null, roomRef = null, roomCode = null, roomData = null;
+let myId = sessionStorage.getItem("imp_uid") || ("u_" + Math.random().toString(36).slice(2, 9));
+sessionStorage.setItem("imp_uid", myId);
+
+let mediaMode = "icon", selectedEmoji = "😈", customPhotoData = null, localStream = null;
+let muted = false, audioCtx = null, activeAudio = null, secretVisible = true, ctrlPeekOpen = false;
+let lastStateKey = "", lastReactTs = 0, lastSfxTs = 0, lastBannerTs = 0, lastRenderedQrCode = "";
+let rewardedRoundKeys = new Set(), actionLocks = new Set();
+const peers = {};
+
+const activeTimers = { timeouts: [], intervals: [] };
+function addTimeout(fn, ms) { const t = setTimeout(fn, ms); activeTimers.timeouts.push(t); return t; }
+function addInterval(fn, ms) { const i = setInterval(fn, ms); activeTimers.intervals.push(i); return i; }
+function clearAllTimers() {
+  activeTimers.timeouts.forEach(t => clearTimeout(t));
+  activeTimers.intervals.forEach(i => clearInterval(i));
+  activeTimers.timeouts = []; activeTimers.intervals = [];
+}
+
+try {
+  if (typeof firebase === "undefined") throw new Error("Firebase SDK nie załadowane");
+  if (!firebase.apps.length) firebase.initializeApp({ databaseURL: DB_URL });
+  db = firebase.database();
+  db.ref(".info/connected").on("value", s => {
+    const el = document.getElementById("db-status");
+    if (s.val()) {
+      el.textContent = "🟢 Online";
+      el.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-950/80 border border-emerald-500/50 text-emerald-200";
+    } else {
+      el.textContent = "🔴 Brak sieci";
+      el.className = "px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-950/80 border border-rose-500/50 text-rose-200";
+    }
+  });
+} catch (e) {
+  document.getElementById("db-status").textContent = "⚠️ Błąd bazy";
+}
+
+/* ===================== 4. AUDIO SYSTEM (MP3 CHAIN + WEB AUDIO SYNTH) ===================== */
+function getCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if (audioCtx.state === "suspended") audioCtx.resume();
+  return audioCtx;
+}
+function playSynth(type) {
+  if (muted) return;
+  try {
+    const ctx = getCtx(), now = ctx.currentTime, osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.connect(g); g.connect(ctx.destination);
+    if (type === "reveal") {
+      osc.type = "sawtooth"; osc.frequency.setValueAtTime(110, now); osc.frequency.exponentialRampToValueAtTime(55, now + 1.1);
+      g.gain.setValueAtTime(0.18, now); g.gain.exponentialRampToValueAtTime(0.001, now + 1.2);
+      osc.start(now); osc.stop(now + 1.25);
+    } else if (type === "zoom") {
+      osc.type = "triangle"; osc.frequency.setValueAtTime(220, now); osc.frequency.setValueAtTime(196, now + 0.35); osc.frequency.setValueAtTime(155, now + 0.7);
+      g.gain.setValueAtTime(0.2, now); g.gain.exponentialRampToValueAtTime(0.001, now + 1.5);
+      osc.start(now); osc.stop(now + 1.55);
+    } else if (type === "caught") {
+      osc.type = "sawtooth"; osc.frequency.setValueAtTime(180, now); osc.frequency.linearRampToValueAtTime(95, now + 1.9);
+      g.gain.setValueAtTime(0.16, now); g.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+      osc.start(now); osc.stop(now + 2.05);
+    } else if (type === "alarm") {
+      osc.type = "square"; osc.frequency.setValueAtTime(720, now); osc.frequency.setValueAtTime(480, now + 0.16);
+      g.gain.setValueAtTime(0.15, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+      osc.start(now); osc.stop(now + 0.48);
+    } else if (type === "boom") {
+      osc.type = "sine"; osc.frequency.setValueAtTime(135, now); osc.frequency.exponentialRampToValueAtTime(34, now + 0.7);
+      g.gain.setValueAtTime(0.35, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.75);
+      osc.start(now); osc.stop(now + 0.8);
+    } else if (type === "siren") {
+      osc.type = "sawtooth"; osc.frequency.setValueAtTime(440, now); osc.frequency.linearRampToValueAtTime(880, now + 0.4); osc.frequency.linearRampToValueAtTime(440, now + 0.8);
+      g.gain.setValueAtTime(0.14, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.85);
+      osc.start(now); osc.stop(now + 0.9);
+    } else if (type === "crickets") {
+      osc.type = "sine"; osc.frequency.setValueAtTime(3800, now);
+      g.gain.setValueAtTime(0.06, now); g.gain.setValueAtTime(0.001, now + 0.08); g.gain.setValueAtTime(0.06, now + 0.14); g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+      osc.start(now); osc.stop(now + 0.28);
+    } else if (type === "clap") {
+      osc.type = "triangle"; osc.frequency.setValueAtTime(900, now); osc.frequency.exponentialRampToValueAtTime(280, now + 0.12);
+      g.gain.setValueAtTime(0.22, now); g.gain.exponentialRampToValueAtTime(0.001, now + 0.14);
+      osc.start(now); osc.stop(now + 0.16);
+    }
+  } catch (e) {}
+}
+function playSoundChain(files, synthKey, cutMs) {
+  if (muted) return;
+  if (activeAudio) { try { activeAudio.pause(); } catch(e){} activeAudio = null; }
+  let idx = 0;
+  function tryNext() {
+    if (idx >= files.length) { playSynth(synthKey); return; }
+    const a = new Audio(files[idx++]);
+    a.volume = 0.85; activeAudio = a;
+    a.onerror = () => tryNext();
+    const p = a.play();
+    if (p) p.catch(() => tryNext());
+    if (cutMs) setTimeout(() => { if (activeAudio === a) { try { a.pause(); a.currentTime = 0; } catch(e){} } }, cutMs);
+  }
+  tryNext();
+}
+function toggleMute() {
+  muted = !muted;
+  document.getElementById("btn-mute").textContent = muted ? "🔇 Wyciszony" : "🔊 Dźwięk";
+}
+
+/* ===================== 5. UI HELPERS, QR CODES & MEDIA ===================== */
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg; el.classList.remove("hidden");
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.add("hidden"), 3200);
+}
+function showScreen(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  document.getElementById(id).classList.add("active");
+}
+function norm(s) {
+  return (s || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/ł/g, "l").replace(/[^a-z0-9]/g, "");
+}
+function getSigmaInfo(nick) {
+  const low = (nick || "").toLowerCase();
+  if (low.includes("ulica")) return { img: "sigma ulica.jpg", label: "★ SIGMA" };
+  if (low.includes("pyka")) return { img: "pyka sigma.jpg", label: "★ SIGMA" };
+  return null;
+}
+function copyTextFallback(txt, okMsg) {
+  const ta = document.createElement("textarea"); ta.value = txt; document.body.appendChild(ta);
+  ta.select(); document.execCommand("copy"); ta.remove();
+  toast(okMsg);
+}
+function getRoomJoinUrl(code) {
+  const base = window.location.href.split("?")[0].split("#")[0];
+  return base + "?room=" + encodeURIComponent(code);
+}
+function copyRoomCode() { if (roomCode) copyTextFallback(roomCode, "Skopiowano kod: " + roomCode); }
+function copyJoinLink() { if (roomCode) copyTextFallback(getRoomJoinUrl(roomCode), "Skopiowano link do pokoju " + roomCode + "!"); }
+
+// GUARANTEED QR CODE RENDERER (api.qrserver.com -> quickchart.io fallback)
+function renderQRImg(containerId, code) {
+  const el = document.getElementById(containerId);
+  if (!el || !code) return;
+  const joinUrl = getRoomJoinUrl(code);
+  const primary = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&margin=10&data=${encodeURIComponent(joinUrl)}`;
+  const fallback = `https://quickchart.io/qr?size=240&text=${encodeURIComponent(joinUrl)}`;
+  el.innerHTML = `<img src="${primary}" alt="Kod QR pokoju ${code}" onerror="if(!this.dataset.fb){this.dataset.fb=1;this.src='${fallback}';}">`;
+}
+function openQrModal() {
+  if (!roomCode) return;
+  document.getElementById("modal-qr-text").textContent = roomCode;
+  document.getElementById("modal-qr-file-warn").classList.toggle("hidden", window.location.protocol !== "file:");
+  renderQRImg("modal-qr-code", roomCode);
+  document.getElementById("qr-modal").classList.remove("hidden");
+  document.getElementById("qr-modal").classList.add("flex");
+}
+function closeQrModal() {
+  document.getElementById("qr-modal").classList.add("hidden");
+  document.getElementById("qr-modal").classList.remove("flex");
+}
+
+function updatePreview() {
+  const nick = document.getElementById("inp-nick").value;
+  const sig = getSigmaInfo(nick);
+  const box = document.getElementById("preview-box");
+  box.className = "relative w-32 h-32 rounded-xl overflow-hidden bg-rose-950/60 border-2 border-rose-500/50 shrink-0 flex items-center justify-center " + getFrameClass(account.equipped);
+  const vid = document.getElementById("preview-video"), img = document.getElementById("preview-img"), emo = document.getElementById("preview-emoji");
+  document.getElementById("sigma-hint").classList.toggle("hidden", !sig);
+  document.getElementById("preview-sigma").classList.toggle("hidden", !sig);
+  document.getElementById("preview-cosmetics").innerHTML = renderCosmeticsOverlays(account.equipped);
+  vid.classList.add("hidden"); img.classList.add("hidden"); emo.classList.add("hidden");
+
+  if (sig) {
+    img.src = sig.img; img.onerror = () => { img.classList.add("hidden"); emo.textContent = "🗿"; emo.classList.remove("hidden"); };
+    img.classList.remove("hidden");
+  } else if (mediaMode === "cam" && localStream) {
+    vid.srcObject = localStream; vid.classList.remove("hidden");
+  } else if (customPhotoData) {
+    img.src = customPhotoData; img.classList.remove("hidden");
+  } else {
+    emo.textContent = selectedEmoji; emo.classList.remove("hidden");
+  }
+}
+function onNickChange() { updatePreview(); }
+function setMediaMode(mode) {
+  mediaMode = mode;
+  document.getElementById("cam-controls").classList.toggle("hidden", mode !== "cam");
+  document.getElementById("icon-controls").classList.toggle("hidden", mode !== "icon");
+  document.getElementById("mode-cam").className = (mode === "cam" ? "btn-red" : "btn-out") + " px-3 py-1 rounded-lg text-xs";
+  document.getElementById("mode-icon").className = (mode === "icon" ? "btn-red" : "btn-out") + " px-3 py-1 rounded-lg text-xs";
+  if (mode === "cam") startLocalCam();
+  else { stopLocalCam(); updatePreview(); }
+}
+async function startLocalCam(deviceId) {
+  try {
+    stopLocalCam();
+    const videoCfg = deviceId ? { deviceId: { exact: deviceId }, width: 320, height: 240 } : { facingMode: "user", width: 320, height: 240 };
+    localStream = await navigator.mediaDevices.getUserMedia({ video: videoCfg, audio: false });
+    const devs = await navigator.mediaDevices.enumerateDevices();
+    const sel = document.getElementById("cam-select"), cur = sel.value;
+    sel.innerHTML = "";
+    devs.filter(d => d.kind === "videoinput").forEach((d, i) => {
+      const o = document.createElement("option"); o.value = d.deviceId; o.textContent = d.label || `Kamerka ${i + 1}`;
+      sel.appendChild(o);
+    });
+    if (cur) sel.value = cur;
+    updatePreview();
+  } catch (e) {
+    toast("Brak dostępu do kamerki — przełączono na ikonę.");
+    setMediaMode("icon");
+  }
+}
+function stopLocalCam() {
+  if (localStream) { localStream.getTracks().forEach(t => t.stop()); localStream = null; }
+}
+function handlePhotoUpload(ev) {
+  const f = ev.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    const im = new Image();
+    im.onload = () => {
+      const c = document.createElement("canvas"); c.width = 200; c.height = 200;
+      const side = Math.min(im.width, im.height);
+      c.getContext("2d").drawImage(im, (im.width - side) / 2, (im.height - side) / 2, side, side, 0, 0, 200, 200);
+      customPhotoData = c.toDataURL("image/jpeg", 0.72);
+      updatePreview();
+      toast("Zdjęcie przycięte do 200×200!");
+    };
+    im.src = r.result;
+  };
+  r.readAsDataURL(f);
+}
+
+(function initStaticUI() {
+  const eg = document.getElementById("emoji-grid");
+  EMOJIS.forEach(e => {
+    const b = document.createElement("button");
+    b.className = "btn-out rounded-lg text-xl py-1"; b.style.minHeight = "36px"; b.textContent = e;
+    b.onclick = () => { selectedEmoji = e; customPhotoData = null; updatePreview(); };
+    eg.appendChild(b);
+  });
+  const rt = document.getElementById("roles-toggles");
+  Object.entries(ROLES_META).forEach(([k, v]) => {
+    rt.innerHTML += `<label class="flex items-start justify-between gap-2 bg-black/30 p-1.5 rounded-lg cursor-pointer">
+      <span><b class="text-rose-100">${v.name}</b><br><span class="text-[11px] text-rose-300/75">${v.desc}</span></span>
+      <input id="role-${k}" type="checkbox" onchange="saveSettings()" class="accent-rose-500 w-4 h-4 mt-1 shrink-0">
+    </label>`;
+  });
+  loadAccount();
+  updatePreview();
+  try {
+    const code = (new URLSearchParams(window.location.search).get("room") || "").trim().toUpperCase().slice(0, 5);
+    if (code.length >= 4) {
+      document.getElementById("inp-code").value = code;
+      document.getElementById("qr-join-code").textContent = code;
+      document.getElementById("qr-join-banner").classList.remove("hidden");
+      const jb = document.getElementById("btn-join-main");
+      jb.className = "btn-red flex-1 rounded-xl px-4 py-2.5 text-sm";
+      jb.textContent = "📱 DOŁĄCZ DO POKOJU " + code;
+    }
+  } catch (e) {}
+})();
+
+/* ===================== 6. ROOM MANAGEMENT & WEBRTC ===================== */
+function isTvMode() { return !!(roomData && roomData.mode === "tv"); }
+function isTvHost() { return isTvMode() && roomData.host === myId; }
+function isTvController() { return isTvMode() && roomData.host !== myId; }
+function isHost() { return !!(roomData && roomData.host === myId); }
+
+function getMyProfile() {
+  const name = (document.getElementById("inp-nick").value || "").trim() || ("Gracz_" + Math.floor(100 + Math.random() * 899));
+  const sig = getSigmaInfo(name);
+  return {
+    id: myId, name, isBot: false, score: 0,
+    hasCam: !sig && mediaMode === "cam" && !!localStream,
+    avatar: sig ? sig.img : (customPhotoData || selectedEmoji),
+    isImg: !!(sig || customPhotoData),
+    sigma: !!sig, usedShot: false,
+    cosmetics: account.equipped,
+    stats: { correctVotes: 0, impSurvived: 0, votedInnocent: 0 }
+  };
+}
+
+async function createRoom() {
+  if (!db) return toast("Brak połączenia z Firebase.");
+  const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+  await db.ref("impostor_rooms/" + code).set({
+    host: myId, mode: "online", phase: "lobby", round: 0, stateVersion: 1,
+    settings: { impostors: 1, rounds: 5, blind: false, mutators: false, cctv: true, customWords: "", roles: {} },
+    players: { [myId]: getMyProfile() }
+  });
+  enterRoom(code, false, false);
+}
+async function createTvRoom() {
+  if (!db) return toast("Brak połączenia z Firebase.");
+  stopLocalCam();
+  const code = Math.random().toString(36).substring(2, 7).toUpperCase();
+  await db.ref("impostor_rooms/" + code).set({
+    host: myId, mode: "tv", phase: "lobby", round: 0, stateVersion: 1,
+    settings: { impostors: 1, rounds: 5, blind: false, mutators: false, cctv: true, customWords: "", roles: {} },
+    players: {}
+  });
+  enterRoom(code, true, false);
+}
+async function joinRoom() {
+  if (!db) return toast("Brak połączenia z Firebase.");
+  const code = document.getElementById("inp-code").value.trim().toUpperCase();
+  if (code.length < 4) return toast("Wpisz 5-znakowy kod pokoju!");
+  const snap = await db.ref("impostor_rooms/" + code).once("value");
+  if (!snap.exists()) return toast("Nie znaleziono pokoju: " + code);
+  const d = snap.val();
+  if (Object.keys(d.players || {}).length >= 10 && !(d.players && d.players[myId])) return toast("Pokój jest pełny (max 10 graczy).");
+  await db.ref(`impostor_rooms/${code}/players/${myId}`).set(getMyProfile());
+  enterRoom(code, false, d.mode === "tv");
+}
+function enterRoom(code, asTvHost, joiningTvRoom) {
+  roomCode = code; lastRenderedQrCode = ""; ctrlPeekOpen = false;
+  roomRef = db.ref("impostor_rooms/" + code);
+  if (!asTvHost) roomRef.child("players/" + myId).onDisconnect().remove();
+  if (joiningTvRoom && !asTvHost && !muted) {
+    muted = true;
+    document.getElementById("btn-mute").textContent = "🔇 Wyciszony (TV)";
+    toast("🔇 Telefon wyciszony (dźwięki grają na TV).");
+  }
+  roomRef.on("value", snap => {
+    if (!snap.exists()) { leaveRoom(true); return; }
+    roomData = snap.val();
+    ensureHostExists();
+    renderAll();
+  });
+  setupWebRTCSignaling();
+}
+function leaveRoom(silent) {
+  clearAllTimers();
+  if (roomRef) {
+    roomRef.off();
+    if (!silent && !isTvHost()) roomRef.child("players/" + myId).remove();
+    roomRef.child("webrtc/" + myId).remove();
+  }
+  Object.values(peers).forEach(p => { try { p.pc.close(); } catch(e){} });
+  for (const k in peers) delete peers[k];
+  roomRef = null; roomCode = null; roomData = null; lastStateKey = ""; lastRenderedQrCode = ""; actionLocks.clear();
+  document.getElementById("overlay").classList.add("hidden");
+  showScreen("screen-home");
+}
+function ensureHostExists() {
+  if (isTvMode()) return;
+  const humans = Object.values(roomData.players || {}).filter(p => !p.isBot);
+  if (humans.length && !roomData.players[roomData.host] && humans[0].id === myId) {
+    roomRef.child("host").set(myId);
+  }
+}
+
+function setupWebRTCSignaling() {
+  if (!roomRef) return;
+  roomRef.child("webrtc/" + myId).on("child_added", async snap => {
+    const msg = snap.val(); if (!msg || !msg.from) return;
+    snap.ref.remove();
+    const pc = getOrCreatePeer(msg.from, false);
+    try {
+      if (msg.type === "offer") {
+        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+        const ans = await pc.createAnswer(); await pc.setLocalDescription(ans);
+        roomRef.child("webrtc/" + msg.from).push({ from: myId, type: "answer", sdp: pc.localDescription.toJSON() });
+      } else if (msg.type === "answer") {
+        await pc.setRemoteDescription(new RTCSessionDescription(msg.sdp));
+      } else if (msg.type === "ice" && msg.cand) {
+        await pc.addIceCandidate(new RTCIceCandidate(msg.cand));
+      }
+    } catch (e) {}
+  });
+}
+function getOrCreatePeer(peerId, initiator) {
+  if (peers[peerId]) return peers[peerId].pc;
+  const pc = new RTCPeerConnection({ iceServers: [{ urls: "stun:stun.l.google.com:19302" }] });
+  peers[peerId] = { pc, stream: null };
+  if (localStream) localStream.getTracks().forEach(t => pc.addTrack(t, localStream));
+  pc.ontrack = e => {
+    peers[peerId].stream = e.streams[0];
+    document.querySelectorAll(`video[data-uid="${peerId}"]`).forEach(v => { v.srcObject = e.streams[0]; });
+  };
+  pc.onicecandidate = e => {
+    if (e.candidate && roomRef) roomRef.child("webrtc/" + peerId).push({ from: myId, type: "ice", cand: e.candidate.toJSON() });
+  };
+  if (initiator) {
+    pc.createOffer({ offerToReceiveVideo: true }).then(o => pc.setLocalDescription(o)).then(() => {
+      if (roomRef) roomRef.child("webrtc/" + peerId).push({ from: myId, type: "offer", sdp: pc.localDescription.toJSON() });
+    }).catch(() => {});
+  }
+  return pc;
+}
+function syncWebRTCPeers() {
+  if (!roomData) return;
+  if (isTvMode()) {
+    if (isTvController() && localStream && roomData.host && !peers[roomData.host]) getOrCreatePeer(roomData.host, true);
+    return;
+  }
+  Object.values(roomData.players || {}).forEach(p => {
+    if (p.id === myId || p.isBot || (!p.hasCam && !localStream)) return;
+    if (!peers[p.id] && myId < p.id) getOrCreatePeer(p.id, true);
+  });
+}
+
+/* ===================== 7. LOBBY CONTROLS & BOT CREATION ===================== */
+function saveSettings() {
+  if (!isHost()) return;
+  const roles = {};
+  Object.keys(ROLES_META).forEach(k => roles[k] = !!document.getElementById("role-" + k).checked);
+  roomRef.child("settings").set({
+    impostors: Number(document.getElementById("cfg-impostors").value),
+    rounds: Number(document.getElementById("cfg-rounds").value),
+    blind: document.getElementById("cfg-blind").checked,
+    mutators: document.getElementById("cfg-mutators").checked,
+    cctv: document.getElementById("cfg-cctv").checked,
+    customWords: document.getElementById("cfg-words").value,
+    roles
+  });
+}
+function randomBotCosmetics() {
+  const h = COSMETICS.filter(c => c.cat === "hat"), g = COSMETICS.filter(c => c.cat === "glasses"), f = COSMETICS.filter(c => c.cat === "frame");
+  return {
+    hat: Math.random() < 0.45 ? h[Math.floor(Math.random() * h.length)].id : null,
+    glasses: Math.random() < 0.4 ? g[Math.floor(Math.random() * g.length)].id : null,
+    frame: Math.random() < 0.25 ? f[Math.floor(Math.random() * f.length)].id : null
+  };
+}
+function addBot() {
+  if (!isHost()) return;
+  const cur = Object.values(roomData.players || {});
+  if (cur.length >= 10) return toast("Maksymalnie 10 graczy.");
+  const used = new Set(cur.map(p => p.name));
+  const name = BOT_NAMES.find(n => !used.has(n)) || ("Bot_" + Math.floor(10 + Math.random() * 89));
+  const id = "bot_" + Math.random().toString(36).slice(2, 7);
+  roomRef.child("players/" + id).set({
+    id, name, isBot: true, score: 0, hasCam: false, isImg: false, sigma: false, usedShot: false,
+    avatar: EMOJIS[Math.floor(Math.random() * EMOJIS.length)],
+    cosmetics: randomBotCosmetics(),
+    stats: { correctVotes: 0, impSurvived: 0, votedInnocent: 0 }
+  });
+}
+function removeBot(id) { if (isHost()) roomRef.child("players/" + id).remove(); }
+
+/* ===================== 8. BULLETPROOF STATE MACHINE (HOST AUTHORITATIVE) ===================== */
+function getPlayerCluesList(g, pid) {
+  if (!g || !g.clues) return [];
+  return Object.keys(g.clues).map(Number).sort((a, b) => a - b)
+    .map(c => g.clues[c]?.[pid]).filter(Boolean);
+}
+function getAliveIds(g) {
+  return (g.order || []).filter(id => roomData.players?.[id] && !(g.eliminated && g.eliminated[id]));
+}
+function pickWordEntry() {
+  const custom = (roomData.settings?.customWords || "").split("\n").map(l => l.trim()).filter(l => l.includes(":"));
+  const pool = [...WORDS_DB];
+  custom.forEach(l => {
+    const [w, h] = l.split(":");
+    if (w && h) pool.push({ w: w.trim(), d: "Podobne hasło", h: h.trim(), c: ["blisko tematu","znane każdemu","często spotykane","charakterystyczne","klasyk"], i: ["ogólna rzecz","różnie bywa","zależy od gustu","popularne","ciekawe"] });
+  });
+  const used = roomData.usedWords || [];
+  const avail = pool.filter(x => !used.includes(x.w));
+  const src = avail.length ? avail : pool;
+  return src[Math.floor(Math.random() * src.length)];
+}
+
+function startGame() {
+  if (!isHost()) return;
+  const plist = Object.values(roomData.players || {});
+  if (plist.length < 3) return toast("Potrzeba co najmniej 3 graczy (dodaj boty!).");
+  actionLocks.clear();
+  const ups = { round: 0, usedWords: [] };
+  plist.forEach(p => {
+    ups[`players/${p.id}/score`] = 0;
+    ups[`players/${p.id}/usedShot`] = false;
+    ups[`players/${p.id}/stats`] = { correctVotes: 0, impSurvived: 0, votedInnocent: 0 };
+  });
+  roomRef.update(ups).then(() => startNextRound(1));
+}
+
+function startNextRound(roundNum) {
+  if (!isHost()) return;
+  actionLocks.clear();
+  const ids = Object.keys(roomData.players || {}).sort(() => Math.random() - 0.5);
+  const cfg = roomData.settings || {};
+  const maxImp = Math.max(1, Math.min(cfg.impostors || 1, Math.floor((ids.length - 1) / 2)));
+  const rolesMap = {};
+  ids.forEach((id, idx) => rolesMap[id] = idx < maxImp ? "impostor" : "crew");
+  const enabledSpecials = Object.keys(ROLES_META).filter(k => cfg.roles && cfg.roles[k]).sort(() => Math.random() - 0.5);
+  const crewIds = ids.slice(maxImp);
+  enabledSpecials.forEach((rk, i) => { if (crewIds[i]) rolesMap[crewIds[i]] = rk; });
+
+  const entry = pickWordEntry();
+  const mut = cfg.mutators ? MUTATORS[Math.floor(Math.random() * MUTATORS.length)] : null;
+  const order = [...ids].sort(() => Math.random() - 0.5);
+
+  roomRef.update({
+    phase: "reveal", round: roundNum, stateVersion: (roomData.stateVersion || 0) + 1, phaseTs: Date.now(),
+    usedWords: [...(roomData.usedWords || []), entry.w],
+    game: {
+      entry, roles: rolesMap, order, turnOrder: order, turnIndex: 0, clueCycle: 1,
+      eliminated: {}, clues: {}, votes: null, glitched: {}, shieldTarget: null,
+      maxChances: maxImp, voteChancesLeft: maxImp, mutator: mut,
+      accusedId: null, finalGuessTarget: null, finalGuessVal: null,
+      roundRewards: {}, matchWinBonus: {}, summary: null, banner: null
+    }
+  });
+}
+
+function startClueCycle(newCycle, bannerText = null) {
+  if (!isHost() || !roomData?.game) return;
+  const g = roomData.game, aliveOrder = getAliveIds(g);
+  const durSec = roomData.settings?.blind ? 15 : (g.mutator?.id === "blitz" ? 8 : 30);
+  const ups = {
+    phase: "clues", stateVersion: (roomData.stateVersion || 0) + 1, phaseTs: Date.now(),
+    "game/clueCycle": newCycle, "game/turnOrder": aliveOrder, "game/turnIndex": 0,
+    "game/votes": null, "game/shieldTarget": null, "game/accusedId": null,
+    "game/finalGuessTarget": null, "game/finalGuessVal": null,
+    "game/deadline": Date.now() + durSec * 1000
+  };
+  if (bannerText) ups["game/banner"] = { text: bannerText, ts: Date.now() };
+  roomRef.update(ups);
+}
+function hostForceExtend() {
+  if (!isHost() || roomData?.phase !== "voting") return;
+  startClueCycle((roomData.game.clueCycle || 1) + 1, "🔄 Host zarządził kolejną kolejkę skojarzeń!");
+}
+
+function submitClue(text, uid = myId) {
+  const g = roomData?.game; if (!g || roomData.phase !== "clues") return;
+  let val = (text || "").trim().slice(0, 32);
+  if (!val) return toast("Wpisz skojarzenie!");
+  if (uid === myId) {
+    if (g.mutator?.id === "oneword" && val.includes(" ")) return toast("Mutator: Tylko 1 słowo!");
+    if (g.mutator?.id === "no_a" && /[aą]/i.test(val)) return toast("Mutator: Zakaz litery A!");
+  }
+  const cyc = g.clueCycle || 1;
+  if (g.clues && g.clues[cyc] && g.clues[cyc][uid]) return;
+  roomRef.child(`game/clues/${cyc}/${uid}`).set(val);
+}
+function castVote(targetId) {
+  const g = roomData?.game;
+  if (!g || roomData.phase !== "voting" || (g.eliminated && g.eliminated[myId])) return;
+  roomRef.child(`game/votes/${myId}`).set(targetId);
+}
+function useShield(targetId) {
+  const g = roomData?.game;
+  if (!g || g.roles[myId] !== "ochroniarz" || targetId === myId || g.shieldTarget) return;
+  roomRef.child("game/shieldTarget").set(targetId);
+  toast("🛡️ Osłoniłeś gracza przed wygłosowaniem!");
+}
+function useGlitch(targetId) {
+  const g = roomData?.game;
+  if (!g || g.roles[myId] !== "cenzor" || (g.glitched && Object.keys(g.glitched).length > 0)) return;
+  roomRef.child(`game/glitched/${targetId}`).set(true);
+  toast("📺 Zamazano skojarzenia tego gracza!");
+}
+
+function runHostController() {
+  if (!isHost() || !roomData?.game) return;
+  const g = roomData.game, phase = roomData.phase, cyc = g.clueCycle || 1, v = roomData.stateVersion || 0;
+  const alive = (g.turnOrder || getAliveIds(g)).filter(id => roomData.players?.[id] && !(g.eliminated && g.eliminated[id]));
+
+  if (phase === "reveal") {
+    const lk = `reveal_${roomData.round}_${v}`;
+    if (!actionLocks.has(lk)) {
+      actionLocks.add(lk);
+      addTimeout(() => { if (isHost() && roomData?.phase === "reveal" && roomData?.stateVersion === v) startClueCycle(1); }, 3000);
+    }
+    return;
+  }
+
+  if (phase === "clues") {
+    const cycClues = (g.clues && g.clues[cyc]) || {}, blind = !!roomData.settings?.blind;
+    if (blind) {
+      alive.forEach(id => {
+        if (roomData.players[id]?.isBot && !cycClues[id]) {
+          const bk = `bot_b_${roomData.round}_${cyc}_${id}`;
+          if (!actionLocks.has(bk)) { actionLocks.add(bk); addTimeout(() => botWriteClue(id, roomData.round, cyc), 900 + Math.random() * 1400); }
+        }
+      });
+      if (alive.length && alive.every(id => !!cycClues[id])) {
+        const lk = `vote_${roomData.round}_${cyc}_${v}`;
+        if (!actionLocks.has(lk)) { actionLocks.add(lk); roomRef.update({ phase: "voting", stateVersion: v + 1, phaseTs: Date.now(), "game/votes": null }); }
+      }
+    } else {
+      const idx = g.turnIndex || 0;
+      if (idx >= alive.length) {
+        const lk = `vote_${roomData.round}_${cyc}_${v}`;
+        if (!actionLocks.has(lk)) { actionLocks.add(lk); roomRef.update({ phase: "voting", stateVersion: v + 1, phaseTs: Date.now(), "game/votes": null }); }
+      } else {
+        const curId = alive[idx];
+        if (cycClues[curId]) {
+          const lk = `adv_${roomData.round}_${cyc}_${idx}_${v}`;
+          if (!actionLocks.has(lk)) {
+            actionLocks.add(lk);
+            const durSec = g.mutator?.id === "blitz" ? 8 : 30;
+            roomRef.update({ stateVersion: v + 1, "game/turnIndex": idx + 1, "game/deadline": Date.now() + durSec * 1000 });
+          }
+        } else if (roomData.players[curId]?.isBot) {
+          const bk = `bot_t_${roomData.round}_${cyc}_${idx}_${curId}`;
+          if (!actionLocks.has(bk)) { actionLocks.add(bk); addTimeout(() => botWriteClue(curId, roomData.round, cyc), 850 + Math.random() * 800); }
+        }
+      }
+    }
+    return;
+  }
+
+  if (phase === "voting") {
+    const votes = g.votes || {};
+    alive.forEach(id => {
+      if (roomData.players[id]?.isBot && !votes[id]) {
+        const bk = `bot_v_${roomData.round}_${cyc}_${id}`;
+        if (!actionLocks.has(bk)) { actionLocks.add(bk); addTimeout(() => botCastVote(id, alive, roomData.round, cyc), 700 + Math.random() * 1000); }
+      }
+    });
+    if (alive.length && alive.every(id => !!votes[id])) {
+      const lk = `rv_${roomData.round}_${cyc}_${v}`;
+      if (!actionLocks.has(lk)) { actionLocks.add(lk); resolveVoting(alive); }
+    }
+    return;
+  }
+
+  if (phase === "vote_reveal") {
+    const lk = `vrev_${roomData.round}_${cyc}_${v}`;
+    if (!actionLocks.has(lk)) { actionLocks.add(lk); addTimeout(() => finishVoteReveal(v), 3200); }
+    return;
+  }
+
+  if (phase === "final_chance") {
+    if (g.finalGuessVal !== undefined && g.finalGuessVal !== null) {
+      const lk = `fgr_${roomData.round}_${v}`;
+      if (!actionLocks.has(lk)) { actionLocks.add(lk); resolveFinalChance(g.finalGuessVal); }
+      return;
+    }
+    const tid = g.finalGuessTarget;
+    if (tid && roomData.players[tid]?.isBot) {
+      const bk = `bfg_${roomData.round}_${v}_${tid}`;
+      if (!actionLocks.has(bk)) {
+        actionLocks.add(bk);
+        addTimeout(() => {
+          if (!isHost() || roomData?.phase !== "final_chance" || roomData?.stateVersion !== v) return;
+          roomRef.child("game/finalGuessVal").set(Math.random() < 0.25 ? roomData.game.entry.w : roomData.game.entry.d);
+        }, 3800);
+      }
+    }
+  }
+}
+
+function botWriteClue(botId, expRound, expCyc) {
+  if (!isHost() || !roomData?.game || roomData.phase !== "clues") return;
+  if (roomData.round !== expRound || (roomData.game.clueCycle || 1) !== expCyc) return;
+  const g = roomData.game, role = g.roles[botId], e = g.entry, used = new Set();
+  Object.values(g.clues || {}).forEach(co => Object.values(co || {}).forEach(w => used.add(norm(w))));
+  let pool = role === "impostor" ? [...e.i]
+    : (role === "podrobka" ? [e.d, "podobna kategoria", "klasyczna sprawa", "znany temat", "często używane"]
+    : (role === "blazen" ? ["hmm dziwne", "sam nie wiem", "może coś innego", "podejrzane to", "strzelam w ciemno"] : [...e.c]));
+  pool.sort(() => Math.random() - 0.5);
+  let choice = pool.find(w => !used.has(norm(w))) || (pool[0] + " #" + expCyc);
+  if (g.mutator?.id === "oneword") choice = choice.split(" ")[0];
+  if (g.mutator?.id === "no_a") choice = choice.replace(/[aą]/gi, "o");
+  submitClue(choice, botId);
+}
+function botCastVote(botId, alive, expRound, expCyc) {
+  if (!isHost() || !roomData?.game || roomData.phase !== "voting") return;
+  if (roomData.round !== expRound || (roomData.game.clueCycle || 1) !== expCyc) return;
+  const g = roomData.game, role = g.roles[botId];
+  let targets = alive.filter(id => id !== botId);
+  if (role === "impostor" || role === "kret") targets = targets.filter(id => g.roles[id] !== "impostor");
+  if (!targets.length) targets = alive.filter(id => id !== botId);
+  const pick = Math.random() < (expCyc === 1 ? 0.16 : 0.05) ? "__EXTEND__" : targets[Math.floor(Math.random() * targets.length)];
+  roomRef.child(`game/votes/${botId}`).set(pick);
+}
+
+function resolveVoting(alive) {
+  const g = roomData.game, votes = g.votes || {}, tally = {};
+  alive.forEach(uid => { const t = votes[uid]; if (t) tally[t] = (tally[t] || 0) + (g.roles[uid] === "szef" ? 2 : 1); });
+  const sorted = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  const top = sorted[0], second = sorted[1], isTie = second && top[1] === second[1];
+
+  if (!top || top[0] === "__EXTEND__" || isTie) {
+    startClueCycle((g.clueCycle || 1) + 1, isTie ? "⚖️ Remis w głosowaniu! Kolejna kolejka skojarzeń." : "🔄 Przegłosowano kolejną kolejkę skojarzeń!");
+    return;
+  }
+  const accusedId = top[0];
+  if (g.shieldTarget === accusedId) {
+    startClueCycle((g.clueCycle || 1) + 1, `🛡️ Ochroniarz uratował gracza ${roomData.players[accusedId]?.name}! Kolejna kolejka.`);
+    return;
+  }
+  roomRef.update({ phase: "vote_reveal", stateVersion: (roomData.stateVersion || 0) + 1, phaseTs: Date.now(), "game/accusedId": accusedId });
+}
+
+function finishVoteReveal(expVer) {
+  if (!isHost() || roomData?.phase !== "vote_reveal" || roomData?.stateVersion !== expVer) return;
+  const g = roomData.game, accusedId = g.accusedId, role = g.roles[accusedId], v = roomData.stateVersion || 0;
+
+  if (role === "blazen") {
+    const ups = { [`players/${accusedId}/score`]: (roomData.players[accusedId]?.score || 0) + 4 };
+    roomRef.update(ups).then(() => finishRound("🤡 BŁAZEN WYGRYWA RUNDĘ!", `${roomData.players[accusedId]?.name} był Błaznem i zgarnia +4 pkt!`, { [accusedId]: 4 }));
+    return;
+  }
+  if (role === "impostor") {
+    const ups = { phase: "final_chance", stateVersion: v + 1, phaseTs: Date.now(), "game/finalGuessTarget": accusedId, "game/finalGuessVal": null, "game/deadline": Date.now() + 18500 };
+    Object.entries(g.votes || {}).forEach(([vid, tid]) => {
+      if (tid === accusedId && roomData.players[vid]) ups[`players/${vid}/stats/correctVotes`] = (roomData.players[vid].stats?.correctVotes || 0) + 1;
+    });
+    roomRef.update(ups);
+    return;
+  }
+
+  const newElim = { ...(g.eliminated || {}), [accusedId]: true };
+  const chancesLeft = Math.max(0, (g.voteChancesLeft ?? g.maxChances) - 1);
+  const ups = {
+    [`game/eliminated/${accusedId}`]: true, "game/voteChancesLeft": chancesLeft,
+    [`players/${accusedId}/stats/votedInnocent`]: (roomData.players[accusedId]?.stats?.votedInnocent || 0) + 1
+  };
+  const alive = g.order.filter(id => roomData.players[id] && !newElim[id]);
+  const aliveImps = alive.filter(id => g.roles[id] === "impostor");
+  const aliveNonImps = alive.filter(id => g.roles[id] !== "impostor");
+
+  if (chancesLeft <= 0 || aliveImps.length >= aliveNonImps.length) {
+    const rewards = {};
+    aliveImps.forEach(id => {
+      rewards[id] = 3;
+      ups[`players/${id}/score`] = (roomData.players[id]?.score || 0) + 3;
+      ups[`players/${id}/stats/impSurvived`] = (roomData.players[id]?.stats?.impSurvived || 0) + 1;
+    });
+    roomRef.update(ups).then(() => finishRound("🔪 IMPOSTORZY WYGRYWAJĄ!", "Skończyły się szanse na wygłosowanie — Impostorzy +3 pkt!", rewards));
+  } else {
+    roomRef.update(ups).then(() => startClueCycle((g.clueCycle || 1) + 1, `❌ ${roomData.players[accusedId]?.name} był niewinny! Pozostało szans: ${chancesLeft}.`));
+  }
+}
+
+function submitFinalGuess() {
+  const inp = document.getElementById("fg-input");
+  if (inp && inp.value.trim()) roomRef.child("game/finalGuessVal").set(inp.value.trim());
+}
+function submitCtrlFinalGuess() {
+  const inp = document.getElementById("ctrl-fg-inp");
+  if (inp && inp.value.trim()) roomRef.child("game/finalGuessVal").set(inp.value.trim());
+}
+
+function resolveFinalChance(guessText) {
+  if (!isHost() || roomData?.phase !== "final_chance") return;
+  const g = roomData.game, tid = g.finalGuessTarget, ok = norm(guessText) === norm(g.entry.w);
+  const ups = { "game/finalGuessVal": null };
+
+  if (ok) {
+    ups[`players/${tid}/score`] = (roomData.players[tid]?.score || 0) + 3;
+    ups[`players/${tid}/stats/impSurvived`] = (roomData.players[tid]?.stats?.impSurvived || 0) + 1;
+    roomRef.update(ups).then(() => finishRound("🔥 IMPOSTOR ODGADŁ HASŁO!", `${roomData.players[tid]?.name} trafił „${g.entry.w}” i zdobywa +3 pkt!`, { [tid]: 3 }));
+  } else {
+    const newElim = { ...(g.eliminated || {}), [tid]: true };
+    ups[`game/eliminated/${tid}`] = true;
+    const aliveImps = g.order.filter(id => roomData.players[id] && !newElim[id] && g.roles[id] === "impostor");
+    if (aliveImps.length > 0) {
+      roomRef.update(ups).then(() => startClueCycle((g.clueCycle || 1) + 1, `✅ Impostor ${roomData.players[tid]?.name} wyeliminowany! Zostało Impostorów: ${aliveImps.length}.`));
+    } else {
+      const rewards = {};
+      g.order.forEach(id => {
+        if (roomData.players[id] && g.roles[id] !== "impostor" && g.roles[id] !== "blazen") {
+          const pts = 2 + ((g.votes && g.votes[id] === tid) ? 1 : 0);
+          rewards[id] = pts;
+          ups[`players/${id}/score`] = (roomData.players[id]?.score || 0) + pts;
+        }
+      });
+      roomRef.update(ups).then(() => finishRound("🛡️ ZAŁOGA WYGRYWA RUNDĘ!", `${roomData.players[tid]?.name} nie odgadł hasła („${guessText || "brak"}”). Załoga +2 pkt (+1 za celny głos)!`, rewards));
+    }
+  }
+}
+
+function finishRound(title, desc, roundRewards = {}) {
+  const isEnd = roomData.round >= (roomData.settings?.rounds || 5);
+  const matchWinBonus = {};
+  if (isEnd) {
+    const plist = Object.values(roomData.players || {});
+    const maxScore = Math.max(0, ...plist.map(p => p.score || 0));
+    plist.filter(p => (p.score || 0) === maxScore && maxScore > 0).forEach(p => { matchWinBonus[p.id] = 2; });
+  }
+  roomRef.update({
+    phase: isEnd ? "match_end" : "round_end", stateVersion: (roomData.stateVersion || 0) + 1, phaseTs: Date.now(),
+    "game/roundRewards": roundRewards, "game/matchWinBonus": matchWinBonus, "game/summary": { title, desc }
+  });
+}
+function hostNextRound() { if (isHost()) startNextRound((roomData.round || 1) + 1); }
+function hostBackToLobby() { if (isHost()) roomRef.update({ phase: "lobby", stateVersion: (roomData.stateVersion || 0) + 1, game: null }); }
+
+function openBlindShot() {
+  const g = roomData?.game; if (!g) return;
+  document.getElementById("shot-targets").innerHTML = getAliveIds(g).filter(id => id !== myId).map(id =>
+    `<button onclick="fireBlindShot('${id}')" class="btn-out w-full rounded-xl py-2 text-sm">🎯 ${roomData.players[id]?.name}</button>`
+  ).join("");
+  document.getElementById("shot-modal").classList.remove("hidden");
+  document.getElementById("shot-modal").classList.add("flex");
+}
+function closeBlindShot() {
+  document.getElementById("shot-modal").classList.add("hidden");
+  document.getElementById("shot-modal").classList.remove("flex");
+}
+function fireBlindShot(targetId) {
+  closeBlindShot();
+  const g = roomData?.game; if (!g) return;
+  const ups = { [`players/${myId}/usedShot`]: true, stateVersion: (roomData.stateVersion || 0) + 1 };
+  if (g.roles[targetId] === "impostor") {
+    ups[`players/${myId}/score`] = (roomData.players[myId]?.score || 0) + 3;
+    ups.phase = "final_chance"; ups.phaseTs = Date.now();
+    ups["game/finalGuessTarget"] = targetId; ups["game/finalGuessVal"] = null; ups["game/deadline"] = Date.now() + 18500;
+    roomRef.update(ups);
+    account.balance += 3; saveAccount();
+    toast("🎯 TRAFIENIE! +3 🪙 do konta!");
+  } else {
+    ups[`players/${myId}/score`] = Math.max(0, (roomData.players[myId]?.score || 0) - 1);
+    ups[`game/eliminated/${myId}`] = true;
+    roomRef.update(ups);
+    toast("❌ Pudło! Odpadasz z tej rundy (-1 pkt).");
+  }
+}
+function sendReaction(emoji) { if (roomRef) roomRef.child("reaction").set({ uid: myId, emoji, ts: Date.now() }); }
+function sendSfx(kind) { if (roomRef) roomRef.child("sfx").set({ kind, ts: Date.now() }); }
+
+/* ===================== 9. RENDERING (LOBBY, ONLINE, TV, CONTROLLER, SUMMARY) ===================== */
+function renderTileHTML(p, extra = {}) {
+  const cls = ["tile card rounded-2xl overflow-hidden border border-rose-500/35", roomData?.settings?.cctv ? "cctv-on" : "", getFrameClass(p.cosmetics)];
+  if (extra.isTurn) cls.push("tile-turn");
+  if (extra.dead) cls.push("tile-dead");
+
+  const media = p.hasCam
+    ? `<video data-uid="${p.id}" autoplay playsinline muted class="mirror"></video>`
+    : (p.isImg
+      ? `<img src="${p.avatar}" onerror="this.style.display='none'" class="w-full h-full object-cover">`
+      : `<div class="w-full h-full flex items-center justify-center text-5xl sm:text-6xl bg-rose-950/60">${p.avatar || "😈"}</div>`);
+
+  const cluesHTML = (extra.clues || []).map((c, idx) =>
+    `<span class="inline-block px-2 py-0.5 rounded-md bg-rose-600/35 border border-rose-400/55 text-rose-50 text-xs font-semibold">${extra.glitched ? "[ZAKŁÓCENIE]" : `<span class="text-rose-300 text-[10px] mr-0.5">${idx + 1}.</span>${c}`}</span>`
+  ).join(" ");
+
+  return `<div id="tile-${p.id}" class="${cls.join(" ")}">
+    <div class="media-wrap relative aspect-[4/3] bg-black/70 overflow-hidden">
+      ${media}
+      ${renderCosmeticsOverlays(p.cosmetics)}
+      <div class="cctv-rec absolute top-1.5 left-1.5 z-10 items-center gap-1 px-1.5 py-0.5 rounded bg-black/65 text-[10px] font-mono text-rose-300">
+        <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>REC
+      </div>
+      ${p.sigma ? `<span class="absolute top-1.5 right-1.5 z-20 px-1.5 py-0.5 rounded bg-amber-400 text-black text-[10px] font-black">★ SIGMA</span>` : ""}
+      ${p.isBot ? `<span class="absolute bottom-1.5 right-1.5 z-10 px-1.5 py-0.5 rounded bg-rose-950/90 border border-rose-400/50 text-[10px] font-bold">🤖 BOT</span>` : ""}
+      ${extra.voteCount ? `<span class="absolute bottom-1.5 left-1.5 z-10 px-2 py-0.5 rounded-full bg-red-600 text-white text-xs font-black shadow">${extra.voteCount} głos(y)</span>` : ""}
+    </div>
+    <div class="p-2.5 space-y-1.5">
+      <div class="flex items-center justify-between gap-1">
+        <span class="font-bold text-sm truncate">${p.name} ${p.id === myId ? "<span class='text-rose-400 text-xs'>(Ty)</span>" : ""}</span>
+        <span class="text-xs font-bold text-rose-300 shrink-0">${p.score || 0} pkt</span>
+      </div>
+      ${extra.showClues ? `<div class="flex flex-wrap gap-1 min-h-[24px]">${cluesHTML || "<span class='text-[11px] text-rose-300/45'>Czeka na odpowiedź...</span>"}</div>` : ""}
+      ${extra.actions || ""}
+    </div>
+  </div>`;
+}
+function attachVideos() {
+  document.querySelectorAll("video[data-uid]").forEach(v => {
+    const uid = v.getAttribute("data-uid"), stream = uid === myId ? localStream : peers[uid]?.stream;
+    if (stream && v.srcObject !== stream) v.srcObject = stream;
+  });
+}
+function toggleSecretBanner() { secretVisible = !secretVisible; renderSecretBanner(); }
+function renderSecretBanner() {
+  const el = document.getElementById("secret-banner"), g = roomData?.game; if (!g) return;
+  el.classList.toggle("hidden", !secretVisible);
+  const role = g.roles?.[myId] || "crew";
+  const imps = Object.entries(g.roles || {}).filter(([, r]) => r === "impostor").map(([id]) => roomData.players[id]?.name).filter(Boolean).join(", ");
+  let html = "";
+  if (role === "impostor") html = `<span class="text-red-400 font-black">🔪 JESTEŚ IMPOSTOREM!</span> Podpowiedź: <b class="text-amber-300">${g.entry.h}</b> ${imps.includes(",") ? `| Wspólnicy: <b>${imps}</b>` : ""}`;
+  else if (role === "podrobka") html = `<span class="text-emerald-300 font-bold">🛡️ ZAŁOGANT</span> • Hasło: <b class="text-white text-base">${g.entry.d}</b>`;
+  else if (role === "podsluch") html = `<span class="text-cyan-300 font-bold">📡 PODSŁUCH</span> • Hasło: <b>${g.entry.w}</b> • Podpowiedź Impostora: <b class="text-amber-300">${g.entry.h}</b>`;
+  else if (role === "kret") html = `<span class="text-rose-400 font-bold">🕵️ KRET</span> • Hasło: <b>${g.entry.w}</b> • Impostorzy: <b class="text-red-400">${imps}</b>`;
+  else if (ROLES_META[role]) html = `<span class="text-amber-300 font-bold">${ROLES_META[role].name}</span> • Hasło: <b class="text-white text-base">${g.entry.w}</b>`;
+  else html = `<span class="text-emerald-300 font-bold">🛡️ ZAŁOGANT</span> • Hasło: <b class="text-white text-base">${g.entry.w}</b>`;
+  document.getElementById("secret-banner-text").innerHTML = html;
+}
+
+function renderAll() {
+  if (!roomData) return;
+  syncWebRTCPeers();
+
+  if (roomData.reaction && roomData.reaction.ts > lastReactTs) {
+    lastReactTs = roomData.reaction.ts;
+    const t = document.getElementById("tile-" + roomData.reaction.uid);
+    if (t) { const f = document.createElement("div"); f.className = "floater"; f.textContent = roomData.reaction.emoji; t.appendChild(f); setTimeout(() => f.remove(), 1950); }
+  }
+  if (roomData.sfx && roomData.sfx.ts > lastSfxTs) { lastSfxTs = roomData.sfx.ts; playSynth(roomData.sfx.kind); }
+  if (roomData.game?.banner && roomData.game.banner.ts > lastBannerTs) { lastBannerTs = roomData.game.banner.ts; toast(roomData.game.banner.text); }
+
+  const g = roomData.game || {};
+  const stateKey = `${roomData.phase}_${roomData.round}_${g.clueCycle || 0}_${g.turnIndex || 0}_${roomData.stateVersion || 0}`;
+  if (stateKey !== lastStateKey) {
+    const prevPhase = lastStateKey.split("_")[0];
+    lastStateKey = stateKey;
+    clearAllTimers();
+    if (roomData.phase !== prevPhase || roomData.phase === "clues") onStateTransition(roomData.phase, prevPhase);
+  }
+
+  if (isTvController()) renderController();
+  else if (roomData.phase === "lobby") renderLobby();
+  else if (roomData.phase === "round_end" || roomData.phase === "match_end") renderSummary();
+  else renderGame();
+
+  runHostController();
+}
+
+function onStateTransition(phase, prevPhase) {
+  const ov = document.getElementById("overlay"), box = document.getElementById("overlay-box");
+  if (phase !== "reveal" && phase !== "vote_reveal" && phase !== "final_chance") {
+    ov.classList.add("hidden"); ov.classList.remove("flex"); box.classList.remove("show");
+  }
+  if (phase === "reveal" && prevPhase !== "reveal") ctrlPeekOpen = false;
+
+  if ((phase === "round_end" || phase === "match_end") && !isTvHost()) {
+    const rKey = `${roomCode}_${roomData.round}_${phase}`;
+    if (!rewardedRoundKeys.has(rKey)) {
+      rewardedRoundKeys.add(rKey);
+      const pts = (roomData.game?.roundRewards?.[myId] || 0) + (roomData.game?.matchWinBonus?.[myId] || 0);
+      if (pts > 0) { account.balance += pts; saveAccount(); toast(`🪙 Zdobyto +${pts} pkt do Twojego konta!`); }
+    }
+  }
+  if (isTvController()) { ov.classList.add("hidden"); ov.classList.remove("flex"); return; }
+
+  if (phase === "reveal" && prevPhase !== "reveal") {
+    playSoundChain(["dzwiek1.mp3", "among-us-role-reveal-sound.mp3"], "reveal");
+    if (isTvHost()) {
+      box.innerHTML = `<div class="text-xs uppercase tracking-widest text-rose-400">Runda ${roomData.round}</div>
+        <div class="text-2xl sm:text-4xl font-black text-red-500 animate-pulse">🔪 LOSOWANIE RÓL...</div>
+        <div class="text-sm sm:text-base text-rose-200">Sprawdźcie swoje telefony! Ktoś wśród Was jest <b class="text-white">IMPOSTOREM</b>...</div>`;
+    } else {
+      const g = roomData.game, role = g.roles[myId], isImp = role === "impostor";
+      const title = isImp ? "🔪 JESTEŚ IMPOSTOREM" : (role === "podrobka" ? "🛡️ JESTEŚ ZAŁOGANTEM" : (ROLES_META[role]?.name || "🛡️ JESTEŚ ZAŁOGANTEM"));
+      const sub = isImp ? `Podpowiedź: <b class="text-amber-300">${g.entry.h}</b>` : `Hasło: <b class="text-white text-2xl">${role === "podrobka" ? g.entry.d : g.entry.w}</b>`;
+      box.innerHTML = `<div class="text-xs uppercase tracking-widest text-rose-400">Runda ${roomData.round}</div>
+        <div class="text-2xl sm:text-3xl font-black ${isImp ? "text-red-500" : "text-rose-100"}">${title}</div>
+        <div class="text-sm text-rose-200">${sub}</div>`;
+    }
+    ov.classList.remove("hidden"); ov.classList.add("flex");
+    addTimeout(() => box.classList.add("show"), 30);
+  } else if (phase === "vote_reveal" && prevPhase !== "vote_reveal") {
+    playSoundChain(["dzwiek2.mp3", "tununuuuu.mp3"], "zoom");
+    const g = roomData.game, p = roomData.players[g.accusedId] || {};
+    const mediaHtml = p.hasCam
+      ? `<video data-uid="${p.id}" autoplay playsinline muted class="mirror"></video>`
+      : (p.isImg ? `<img src="${p.avatar}" class="w-full h-full object-cover">` : `<div class="w-full h-full flex items-center justify-center text-7xl">${p.avatar || "😈"}</div>`);
+    box.innerHTML = `<div class="text-xs uppercase tracking-widest text-rose-400">Werdykt głosowania</div>
+      <div class="relative w-48 h-48 mx-auto rounded-2xl overflow-hidden border-2 border-red-500 bg-black ${getFrameClass(p.cosmetics)}">
+        ${mediaHtml}${renderCosmeticsOverlays(p.cosmetics)}${roomData.settings?.cctv ? `<div class="crosshair"></div>` : ""}
+      </div>
+      <div class="text-2xl sm:text-3xl font-black">${p.name || "Gracz"}</div>
+      <div id="zoom-verdict" class="text-sm sm:text-base text-rose-200 animate-pulse">Czy to na pewno IMPOSTOR...?</div>`;
+    ov.classList.remove("hidden"); ov.classList.add("flex");
+    attachVideos();
+    addTimeout(() => box.classList.add("show"), 30);
+    addTimeout(() => {
+      const v = document.getElementById("zoom-verdict");
+      if (v && roomData?.game) {
+        const r = roomData.game.roles[roomData.game.accusedId];
+        v.classList.remove("animate-pulse");
+        v.innerHTML = r === "impostor" ? `<b class="text-red-400 text-xl">🚨 TAK! TO BYŁ IMPOSTOR!</b>` : `<b class="text-emerald-300 text-xl">❌ NIE! To był ${ROLES_META[r]?.name || "Załogant"}!</b>`;
+      }
+    }, 2200);
+  } else if (phase === "final_chance" && prevPhase !== "final_chance") {
+    playSoundChain(["dzwiek3.mp3", "crowd-boo.mp3"], "caught", 2200);
+    addTimeout(() => {
+      const fl = document.getElementById("alarm-flash");
+      fl.classList.remove("alarm-hit"); void fl.offsetWidth; fl.classList.add("alarm-hit");
+      playSynth("alarm");
+    }, 2200);
+
+    const g = roomData.game, tid = g.finalGuessTarget, p = roomData.players[tid] || {};
+    box.innerHTML = `<div class="text-xs uppercase tracking-widest text-red-400 font-bold">🚨 OSTATECZNA SZANSA IMPOSTORA</div>
+      <div class="text-xl sm:text-2xl font-black">${p.name} został złapany!</div>
+      <p class="text-xs sm:text-sm text-rose-200">Ma <b id="fg-sec" class="text-amber-300 text-lg">18</b>s, aby odgadnąć hasło i ukraść wygraną!</p>
+      ${(!isTvHost() && tid === myId) ? `<div class="flex gap-2 pt-2">
+        <input id="fg-input" placeholder="Wpisz hasło..." onkeydown="if(event.key==='Enter')submitFinalGuess()" class="flex-1 px-3 py-2.5 rounded-xl bg-black/60 border border-rose-400 text-white">
+        <button onclick="submitFinalGuess()" class="btn-red px-4 rounded-xl text-sm">Zgadnij!</button>
+      </div>` : `<div class="text-sm text-amber-300 font-bold animate-pulse">${isTvHost() ? "Impostor wpisuje odpowiedź na swoim telefonie..." : "Czekanie na odpowiedź Impostora..."}</div>`}`;
+    ov.classList.remove("hidden"); ov.classList.add("flex");
+    addTimeout(() => box.classList.add("show"), 30);
+
+    addInterval(() => {
+      const left = Math.max(0, Math.ceil(((roomData?.game?.deadline || 0) - Date.now()) / 1000));
+      const secEl = document.getElementById("fg-sec"); if (secEl) secEl.textContent = left;
+      if (left <= 0 && isHost() && roomData?.phase === "final_chance") roomRef.child("game/finalGuessVal").set("");
+    }, 400);
+  } else if (phase === "clues") {
+    addInterval(() => {
+      const g = roomData?.game; if (!g || roomData.phase !== "clues") return;
+      const left = Math.max(0, Math.ceil(((g.deadline || 0) - Date.now()) / 1000));
+      const tEl = document.getElementById("hud-timer"); if (tEl) tEl.textContent = left + "s";
+      if (left <= 0 && isHost()) {
+        const alive = (g.turnOrder || getAliveIds(g)).filter(id => roomData.players[id] && !(g.eliminated && g.eliminated[id]));
+        const cyc = g.clueCycle || 1;
+        if (roomData.settings?.blind) {
+          const cycClues = (g.clues && g.clues[cyc]) || {};
+          const ups = { phase: "voting", stateVersion: (roomData.stateVersion || 0) + 1, phaseTs: Date.now(), "game/votes": null };
+          alive.forEach(id => { if (!cycClues[id]) ups[`game/clues/${cyc}/${id}`] = "..."; });
+          roomRef.update(ups);
+        } else {
+          const cid = alive[g.turnIndex || 0];
+          if (cid && !(g.clues && g.clues[cyc] && g.clues[cyc][cid])) submitClue("...", cid);
+        }
+      }
+    }, 500);
+  }
+}
+
+function renderLobby() {
+  showScreen("screen-lobby");
+  const tv = isTvHost();
+  document.getElementById("lobby-code").textContent = roomCode;
+  document.getElementById("lobby-mode-badge").textContent = tv ? "📺 TRYB TV" : "💻 ONLINE";
+  document.getElementById("tv-qr-panel").classList.toggle("hidden", !tv);
+  document.getElementById("btn-show-qr").classList.toggle("hidden", tv);
+  document.getElementById("btn-lobby-shop").classList.toggle("hidden", tv);
+  if (tv && lastRenderedQrCode !== roomCode) {
+    lastRenderedQrCode = roomCode;
+    document.getElementById("tv-qr-text-code").textContent = roomCode;
+    document.getElementById("tv-qr-file-warn").classList.toggle("hidden", window.location.protocol !== "file:");
+    renderQRImg("tv-qr-code", roomCode);
+  }
+
+  const plist = Object.values(roomData.players || {});
+  document.getElementById("lobby-count").textContent = plist.length;
+  const host = isHost();
+  document.getElementById("btn-add-bot").classList.toggle("hidden", !host);
+  document.getElementById("btn-start-game").classList.toggle("hidden", !host);
+
+  const cfg = roomData.settings || {};
+  ["cfg-impostors","cfg-rounds","cfg-blind","cfg-mutators","cfg-cctv","cfg-words"].forEach(id => {
+    const el = document.getElementById(id); if (!el) return;
+    el.disabled = !host;
+    const key = id.replace("cfg-", "");
+    if (el.type === "checkbox") el.checked = !!cfg[key];
+    else if (document.activeElement !== el) el.value = cfg[key] ?? el.value;
+  });
+  Object.keys(ROLES_META).forEach(k => {
+    const el = document.getElementById("role-" + k);
+    if (el) { el.disabled = !host; el.checked = !!(cfg.roles && cfg.roles[k]); }
+  });
+
+  const grid = document.getElementById("lobby-players");
+  grid.className = tv ? "tv-stage-grid" : "stage-grid";
+  grid.innerHTML = plist.map(p => renderTileHTML(p, {
+    actions: host && p.isBot ? `<button onclick="removeBot('${p.id}')" class="btn-out w-full rounded-lg text-xs py-1" style="min-height:32px">✕ Usuń bota</button>` : ""
+  })).join("");
+  attachVideos();
+}
+
+function renderGame() {
+  showScreen("screen-game");
+  const g = roomData.game; if (!g) return;
+  const tv = isTvHost(), phase = roomData.phase, cyc = g.clueCycle || 1;
+  const alive = (g.turnOrder || getAliveIds(g)).filter(id => roomData.players[id] && !(g.eliminated && g.eliminated[id]));
+  const amDead = tv || !!(g.eliminated && g.eliminated[myId]);
+  const myRole = tv ? null : g.roles?.[myId];
+
+  document.getElementById("hud-round").textContent = `Runda ${roomData.round}/${roomData.settings?.rounds || 5}`;
+  document.getElementById("hud-cycle").textContent = `Kolejka ${cyc}`;
+  document.getElementById("hud-chances").textContent = `Szanse: ${g.voteChancesLeft}/${g.maxChances}`;
+  const mutEl = document.getElementById("hud-mutator");
+  if (g.mutator) { mutEl.textContent = g.mutator.label; mutEl.classList.remove("hidden"); } else mutEl.classList.add("hidden");
+  document.getElementById("hud-timer").classList.toggle("hidden", phase !== "clues");
+  document.getElementById("online-interact-bar").classList.toggle("hidden", tv);
+  document.getElementById("soundboard-bar").classList.toggle("hidden", tv || phase !== "voting");
+  document.getElementById("btn-my-card").classList.toggle("hidden", tv);
+  document.getElementById("btn-blind-shot").classList.toggle("hidden", !(!tv && phase === "clues" && !amDead && myRole !== "impostor" && !roomData.players[myId]?.usedShot));
+  if (tv) document.getElementById("secret-banner").classList.add("hidden");
+  else renderSecretBanner();
+
+  const bar = document.getElementById("phase-bar");
+  const blind = !!roomData.settings?.blind, curTurnId = !blind ? alive[g.turnIndex || 0] : null;
+  const mySubmitted = !!(g.clues && g.clues[cyc] && g.clues[cyc][myId]);
+  const needMyClue = !tv && phase === "clues" && !amDead && !mySubmitted && (blind || curTurnId === myId);
+
+  if (phase === "clues") {
+    if (needMyClue) {
+      if (!document.getElementById("clue-inp")) {
+        bar.innerHTML = `<div class="text-xs font-bold text-rose-300">${blind ? "🌑 TRYB W CIEMNO — wszyscy piszą naraz!" : `🔴 TWOJA TURA (Kolejka ${cyc}) — wpisz skojarzenie do hasła:`}</div>
+          <div class="flex gap-2">
+            <input id="clue-inp" maxlength="32" placeholder="Twoje skojarzenie..." onkeydown="if(event.key==='Enter')submitClue(this.value)" class="flex-1 px-3.5 py-2.5 rounded-xl bg-black/55 border border-rose-400 text-white">
+            <button onclick="submitClue(document.getElementById('clue-inp').value)" class="btn-red px-5 rounded-xl text-sm">Wyślij</button>
+          </div>`;
+      }
+    } else {
+      const who = blind ? "wszyscy gracze" : (curTurnId ? (roomData.players[curTurnId]?.name || "Gracz") : "reszta graczy");
+      bar.innerHTML = `<div class="${tv ? 'text-lg sm:text-2xl font-black' : 'text-sm'} text-rose-100 text-center">⏳ ${blind ? "🌑 TRYB W CIEMNO —" : "Pisze teraz:"} <b class="text-amber-300">${who}</b> <span class="text-rose-300 text-sm">(Kolejka ${cyc})</span></div>`;
+    }
+  } else if (phase === "voting") {
+    const myVote = g.votes && g.votes[myId];
+    const extCount = Object.values(g.votes || {}).filter(v => v === "__EXTEND__").length;
+    bar.innerHTML = `<div class="flex flex-wrap items-center justify-between gap-2">
+      <div class="${tv ? 'text-lg sm:text-2xl font-black' : 'text-sm font-bold'} text-rose-100">🗳️ GŁOSOWANIE — ${tv ? "głosujcie na swoich telefonach!" : "wskaż podejrzanego lub zagłosuj za kolejną kolejką!"}</div>
+      <div class="flex items-center gap-2 flex-wrap">
+        ${(!tv && !amDead) ? `<button onclick="castVote('__EXTEND__')" class="${myVote === '__EXTEND__' ? 'btn-red' : 'btn-out'} px-3.5 py-1.5 rounded-xl text-xs">🔄 Kolejna kolejka (${extCount})</button>` : `<span class="px-3 py-1 rounded-lg bg-rose-950/80 border border-rose-500/40 text-xs font-bold text-rose-200">🔄 Za kolejną kolejką: ${extCount}</span>`}
+        ${isHost() ? `<button onclick="hostForceExtend()" class="btn-out px-3 py-1.5 rounded-xl text-xs">⏭️ Wymuś kolejną kolejkę</button>` : ""}
+      </div>
+    </div>`;
+  } else {
+    bar.innerHTML = `<div class="text-sm sm:text-lg text-center text-rose-200 font-bold">🎬 Trwa rozstrzygnięcie...</div>`;
+  }
+
+  const votes = g.votes || {}, voteCounts = {};
+  Object.entries(votes).forEach(([vid, tid]) => { if (tid !== "__EXTEND__") voteCounts[tid] = (voteCounts[tid] || 0) + (g.roles[vid] === "szef" ? 2 : 1); });
+
+  const stage = document.getElementById("game-stage");
+  stage.className = tv ? "tv-stage-grid" : "stage-grid";
+  stage.innerHTML = (g.order || []).map(id => {
+    const p = roomData.players[id]; if (!p) return "";
+    const dead = !!(g.eliminated && g.eliminated[id]);
+    let actions = "";
+    if (!tv && phase === "voting" && !amDead && !dead) {
+      const votedHim = votes[myId] === id;
+      if (id !== myId) actions += `<button onclick="castVote('${id}')" class="${votedHim ? 'btn-red' : 'btn-out'} w-full rounded-lg text-xs py-1" style="min-height:34px">${votedHim ? '✓ Twój głos' : '🗳️ Głosuj'}</button>`;
+      if (myRole === "ochroniarz" && id !== myId && !g.shieldTarget) actions += `<button onclick="useShield('${id}')" class="btn-out w-full rounded-lg text-[11px] py-1 mt-1" style="min-height:30px">🛡️ Osłoń</button>`;
+      if (myRole === "cenzor" && !(g.glitched && Object.keys(g.glitched).length)) actions += `<button onclick="useGlitch('${id}')" class="btn-out w-full rounded-lg text-[11px] py-1 mt-1" style="min-height:30px">📺 Zamazuj</button>`;
+    }
+    return renderTileHTML(p, {
+      isTurn: phase === "clues" && !blind && curTurnId === id, dead, showClues: true,
+      clues: getPlayerCluesList(g, id), glitched: !!(g.glitched && g.glitched[id]),
+      voteCount: phase === "voting" ? (voteCounts[id] || 0) : 0, actions
+    });
+  }).join("");
+  attachVideos();
+}
+
+function toggleCtrlPeek() { ctrlPeekOpen = !ctrlPeekOpen; renderControllerSecret(); }
+function renderControllerSecret() {
+  const g = roomData?.game; if (!g) return;
+  const btn = document.getElementById("ctrl-peek-btn"), box = document.getElementById("ctrl-secret-content");
+  btn.textContent = ctrlPeekOpen ? "🙈 Ukryj swoją rolę i hasło" : "👁️ Kliknij, aby podejrzeć swoją rolę i hasło";
+  box.classList.toggle("hidden", !ctrlPeekOpen);
+  if (!ctrlPeekOpen) return;
+  const role = g.roles?.[myId] || "crew";
+  const imps = Object.entries(g.roles || {}).filter(([, r]) => r === "impostor").map(([id]) => roomData.players[id]?.name).filter(Boolean).join(", ");
+  if (role === "impostor") box.innerHTML = `<div class="text-red-400 font-black text-lg">🔪 JESTEŚ IMPOSTOREM!</div><div class="text-rose-200">Podpowiedź: <b class="text-amber-300 text-lg">${g.entry.h}</b></div>${imps.includes(",") ? `<div class="text-xs text-rose-300">Wspólnicy: <b>${imps}</b></div>` : ""}`;
+  else if (role === "podrobka") box.innerHTML = `<div class="text-emerald-300 font-black text-lg">🛡️ JESTEŚ ZAŁOGANTEM</div><div class="text-rose-200">Twoje hasło: <b class="text-white text-xl">${g.entry.d}</b></div>`;
+  else if (role === "podsluch") box.innerHTML = `<div class="text-cyan-300 font-black text-lg">📡 PODSŁUCH</div><div class="text-rose-200">Hasło: <b class="text-white text-xl">${g.entry.w}</b></div><div class="text-xs text-amber-300">Podpowiedź Impostora: <b>${g.entry.h}</b></div>`;
+  else if (role === "kret") box.innerHTML = `<div class="text-rose-400 font-black text-lg">🕵️ KRET</div><div class="text-rose-200">Hasło: <b class="text-white text-xl">${g.entry.w}</b></div><div class="text-xs text-red-400">Impostorzy: <b>${imps}</b></div>`;
+  else if (ROLES_META[role]) box.innerHTML = `<div class="text-amber-300 font-black text-lg">${ROLES_META[role].name}</div><div class="text-rose-200">Hasło: <b class="text-white text-xl">${g.entry.w}</b></div><div class="text-[11px] text-rose-300/85">${ROLES_META[role].desc}</div>`;
+  else box.innerHTML = `<div class="text-emerald-300 font-black text-lg">🛡️ JESTEŚ ZAŁOGANTEM</div><div class="text-rose-200">Twoje hasło: <b class="text-white text-xl">${g.entry.w}</b></div>`;
+}
+
+function renderController() {
+  showScreen("screen-controller");
+  const me = roomData.players?.[myId]; if (!me) return;
+  const box = document.getElementById("ctrl-self-box");
+  box.className = "relative w-14 h-14 rounded-xl overflow-hidden bg-rose-950/70 border border-rose-500/50 shrink-0 flex items-center justify-center " + getFrameClass(me.cosmetics);
+  const cv = document.getElementById("ctrl-self-video"), ci = document.getElementById("ctrl-self-img"), ce = document.getElementById("ctrl-self-emoji");
+  cv.classList.add("hidden"); ci.classList.add("hidden"); ce.classList.add("hidden");
+  if (me.hasCam && localStream) { if (cv.srcObject !== localStream) cv.srcObject = localStream; cv.classList.remove("hidden"); }
+  else if (me.isImg) { ci.src = me.avatar; ci.classList.remove("hidden"); }
+  else { ce.textContent = me.avatar || "😈"; ce.classList.remove("hidden"); }
+  document.getElementById("ctrl-self-cosmetics").innerHTML = renderCosmeticsOverlays(me.cosmetics);
+
+  document.getElementById("ctrl-nick").textContent = me.name;
+  document.getElementById("ctrl-hud").textContent = `📺 Kontroler TV • Pokój ${roomCode}`;
+  document.getElementById("ctrl-score").textContent = `${me.score || 0} pkt w meczu • 🪙 ${account.balance} na koncie`;
+
+  const phase = roomData.phase, g = roomData.game || {}, main = document.getElementById("ctrl-main");
+  const inRound = phase !== "lobby" && phase !== "round_end" && phase !== "match_end";
+  document.getElementById("ctrl-secret-wrap").classList.toggle("hidden", !inRound);
+  if (inRound) renderControllerSecret();
+
+  if (phase === "lobby") {
+    main.innerHTML = `<div class="text-center space-y-2 py-2"><div class="text-3xl">📺</div><div class="font-black text-lg text-white">Połączono z ekranem TV!</div><p class="text-xs text-rose-200/80">Graczy: <b class="text-amber-300">${Object.keys(roomData.players || {}).length}/10</b>. Czekaj, aż Host kliknie <b>Rozpocznij grę</b> na telewizorze.</p></div>`;
+    return;
+  }
+  if (phase === "reveal") {
+    main.innerHTML = `<div class="text-center space-y-2 py-2"><div class="text-xs uppercase tracking-widest text-rose-400 font-bold">Runda ${roomData.round}/${roomData.settings?.rounds || 5}</div><div class="text-xl font-black text-white">🎭 Wylosowano role!</div><p class="text-xs text-rose-200">Kliknij czerwony przycisk powyżej, aby po cichu sprawdzić swoją rolę i hasło.</p></div>`;
+    return;
+  }
+
+  const cyc = g.clueCycle || 1, alive = (g.turnOrder || getAliveIds(g)).filter(id => roomData.players[id] && !(g.eliminated && g.eliminated[id]));
+  const amDead = !!(g.eliminated && g.eliminated[myId]), myRole = g.roles?.[myId], blind = !!roomData.settings?.blind;
+  const curTurnId = !blind ? alive[g.turnIndex || 0] : null, mySubmitted = !!(g.clues && g.clues[cyc] && g.clues[cyc][myId]);
+
+  if (phase === "clues") {
+    const canShot = !amDead && myRole !== "impostor" && !me.usedShot;
+    if (!amDead && !mySubmitted && (blind || curTurnId === myId)) {
+      if (!document.getElementById("ctrl-clue-inp")) {
+        main.innerHTML = `<div class="space-y-3">
+          <div class="text-center"><span class="px-2.5 py-1 rounded-full bg-red-600/40 border border-rose-400 text-xs font-black text-white">${blind ? "🌑 TRYB W CIEMNO (WSZYSCY NARAZ)" : `🔴 TWOJA TURA — KOLEJKA ${cyc}`}</span>${g.mutator ? `<div class="mt-1.5 text-xs font-bold text-amber-300">${g.mutator.label}</div>` : ""}</div>
+          <input id="ctrl-clue-inp" maxlength="32" placeholder="Wpisz skojarzenie..." onkeydown="if(event.key==='Enter')submitClue(this.value)" class="w-full px-4 py-3.5 rounded-xl bg-black/60 border-2 border-rose-400 text-white text-base">
+          <button onclick="submitClue(document.getElementById('ctrl-clue-inp').value)" class="btn-red w-full rounded-xl py-3.5 text-base">WYŚLIJ SKOJARZENIE</button>
+          ${canShot ? `<button onclick="openBlindShot()" class="btn-out w-full rounded-xl py-2 text-xs">🎯 Strzał w ciemno</button>` : ""}
+        </div>`;
+      }
+    } else {
+      main.innerHTML = `<div class="text-center space-y-3 py-2"><div class="text-sm text-rose-200">${amDead ? "💀 Zostałeś wyeliminowany." : (mySubmitted ? "✅ Twoje skojarzenie jest już na TV!" : `⏳ Teraz pisze: <b class="text-white">${blind ? "inni gracze" : (roomData.players[curTurnId]?.name || "Gracz")}</b>`)}</div>${canShot ? `<button onclick="openBlindShot()" class="btn-out w-full rounded-xl py-2.5 text-xs">🎯 Strzał w ciemno</button>` : ""}</div>`;
+    }
+    return;
+  }
+
+  if (phase === "voting") {
+    if (amDead) { main.innerHTML = `<div class="text-center text-sm text-rose-200 py-3">💀 Jesteś wyeliminowany — oglądaj głosowanie na TV.</div>`; return; }
+    const myVote = g.votes && g.votes[myId];
+    const targetsHtml = alive.filter(id => id !== myId).map(id => {
+      const p = roomData.players[id], voted = myVote === id;
+      let spec = "";
+      if (myRole === "ochroniarz" && !g.shieldTarget) spec += `<button onclick="useShield('${id}')" class="btn-out px-2.5 rounded-xl text-xs" style="min-height:44px">🛡️</button>`;
+      if (myRole === "cenzor" && !(g.glitched && Object.keys(g.glitched).length)) spec += `<button onclick="useGlitch('${id}')" class="btn-out px-2.5 rounded-xl text-xs" style="min-height:44px">📺</button>`;
+      return `<div class="flex gap-1.5"><button onclick="castVote('${id}')" class="${voted ? 'btn-red' : 'btn-out'} flex-1 rounded-xl py-3 px-3 text-sm text-left flex items-center justify-between"><span class="truncate font-bold">${p.name}</span><span class="text-xs">${voted ? "✓ TWÓJ GŁOS" : "🗳️"}</span></button>${spec}</div>`;
+    }).join("");
+    main.innerHTML = `<div class="space-y-2.5"><div class="text-center font-black text-rose-100 text-base">🗳️ ZAGŁOSUJ NA PODEJRZANEGO</div><div class="space-y-2">${targetsHtml}</div><button onclick="castVote('__EXTEND__')" class="${myVote === '__EXTEND__' ? 'btn-red' : 'btn-out'} w-full rounded-xl py-3 text-sm">🔄 Kolejna kolejka skojarzeń</button></div>`;
+    return;
+  }
+
+  if (phase === "vote_reveal") {
+    main.innerHTML = `<div class="text-center space-y-2 py-4"><div class="text-3xl animate-pulse">📺</div><div class="font-black text-lg text-white">Patrz na telewizor!</div><p class="text-xs text-rose-200">Trwa ujawnienie wygłosowanego gracza...</p></div>`;
+    return;
+  }
+
+  if (phase === "final_chance") {
+    const tid = g.finalGuessTarget;
+    if (tid === myId) {
+      if (!document.getElementById("ctrl-fg-inp")) {
+        main.innerHTML = `<div class="space-y-3 text-center"><div class="text-xs uppercase tracking-widest text-red-400 font-black animate-pulse">🚨 OSTATECZNA SZANSA!</div><div class="text-lg font-black text-white">Zgadnij hasło, aby wygrać!</div><div class="text-xs text-amber-300">Podpowiedź: <b>${g.entry?.h}</b></div><input id="ctrl-fg-inp" placeholder="Wpisz hasło..." onkeydown="if(event.key==='Enter')submitCtrlFinalGuess()" class="w-full px-4 py-3.5 rounded-xl bg-black/60 border-2 border-red-500 text-white text-base"><button onclick="submitCtrlFinalGuess()" class="btn-red w-full rounded-xl py-3.5 text-base">🔥 ZGADNIJ HASŁO!</button></div>`;
+      }
+    } else {
+      main.innerHTML = `<div class="text-center space-y-2 py-4"><div class="text-3xl">🚨</div><div class="font-black text-lg text-white">Ostateczna szansa Impostora!</div><p class="text-xs text-rose-200"><b>${roomData.players[tid]?.name || "Impostor"}</b> próbuje teraz odgadnąć hasło...</p></div>`;
+    }
+    return;
+  }
+
+  if (phase === "round_end" || phase === "match_end") {
+    const sum = g.summary || {}, earned = (g.roundRewards?.[myId] || 0) + (g.matchWinBonus?.[myId] || 0);
+    main.innerHTML = `<div class="text-center space-y-2.5 py-2"><div class="text-xl font-black text-white">${phase === "match_end" ? "🏆 KONIEC MECZU" : (sum.title || "Koniec rundy")}</div><p class="text-xs text-rose-200">${sum.desc || ""}</p>${g.entry ? `<div class="text-xs bg-black/50 p-2 rounded-lg border border-rose-500/30">Hasło: <b class="text-white">${g.entry.w}</b></div>` : ""}${earned > 0 ? `<div class="text-sm font-black text-amber-300">+${earned} 🪙 dopisano do konta!</div>` : ""}<div class="text-[11px] text-rose-300/80 pt-1">Pełna tabela i podium są widoczne na telewizorze 📺</div></div>`;
+  }
+}
+
+function renderSummary() {
+  showScreen("screen-summary");
+  document.getElementById("overlay").classList.add("hidden");
+  const g = roomData.game || {}, sum = g.summary || {}, isPodium = roomData.phase === "match_end";
+  document.getElementById("sum-title").textContent = isPodium ? "🏆 PODIUM KOŃCOWE" : (sum.title || "Koniec rundy");
+  document.getElementById("sum-desc").textContent = sum.desc || "";
+  document.getElementById("sum-word").innerHTML = g.entry ? `Hasło: <span class="text-rose-300">${g.entry.w}</span> • Podpowiedź: <span class="text-amber-300">${g.entry.h}</span>` : "";
+
+  const sorted = Object.values(roomData.players || {}).sort((a, b) => (b.score || 0) - (a.score || 0));
+  document.getElementById("sum-board").innerHTML = sorted.map((p, i) => {
+    const earned = (g.roundRewards?.[p.id] || 0) + (g.matchWinBonus?.[p.id] || 0);
+    return `<div class="flex items-center justify-between px-3.5 py-2.5 rounded-xl bg-black/45 border ${i === 0 ? "border-amber-400/70" : "border-rose-500/25"}">
+      <div class="flex items-center gap-2.5 flex-wrap">
+        <span class="font-black text-rose-400 w-5">#${i + 1}</span>
+        <span class="font-bold">${p.name}</span>
+        <span class="text-[11px] text-rose-300/75">${g.roles?.[p.id] === "impostor" ? "🔪 Impostor" : (ROLES_META[g.roles?.[p.id]]?.name || "🛡️ Załogant")}</span>
+        ${earned > 0 ? `<span class="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 text-[11px] font-bold">+${earned} 🪙</span>` : ""}
+      </div>
+      <span class="font-black text-amber-300">${p.score || 0} pkt</span>
+    </div>`;
+  }).join("");
+
+  const titlesEl = document.getElementById("sum-titles");
+  if (isPodium && sorted.length) {
+    const det = [...sorted].sort((a, b) => (b.stats?.correctVotes || 0) - (a.stats?.correctVotes || 0))[0];
+    const akt = [...sorted].sort((a, b) => (b.stats?.impSurvived || 0) - (a.stats?.impSurvived || 0))[0];
+    const pod = [...sorted].sort((a, b) => (b.stats?.votedInnocent || 0) - (a.stats?.votedInnocent || 0))[0];
+    titlesEl.innerHTML = `
+      <div class="p-2.5 rounded-xl bg-rose-950/70 border border-rose-500/40 text-xs">🕵️ <b>Detektyw</b><br>${det.name}</div>
+      <div class="p-2.5 rounded-xl bg-rose-950/70 border border-rose-500/40 text-xs">🎭 <b>Aktor</b><br>${akt.name}</div>
+      <div class="p-2.5 rounded-xl bg-rose-950/70 border border-rose-500/40 text-xs">🎯 <b>Podejrzany typ</b><br>${pod.name}</div>`;
+    titlesEl.classList.remove("hidden");
+  } else titlesEl.classList.add("hidden");
+
+  document.getElementById("btn-next-round").classList.toggle("hidden", !isHost() || isPodium);
+  document.getElementById("btn-back-lobby").classList.toggle("hidden", !isHost());
+}
+</script>
+</body>
+</html>
